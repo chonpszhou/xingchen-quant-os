@@ -94,6 +94,7 @@ def main():
     lines += ["## 监控任务", "",
               f"- 双低监控：{'✓ 最近快照 ' + json.loads(snap.read_text(encoding='utf-8')).get('date', '-') if snap.exists() else '未运行'}",
               f"- 期权 IV：{'✓ 已生成' if iv.exists() else '未生成'}（指数级正常，个股链视限流）",
+              f"- 风控监控：{'✓ 已运行（docs/风控状态.md）' if (ROOT / 'docs' / '风控状态.md').exists() else '未运行'}",
               f"- 定时任务：见 config/tasks.yaml（daily_summary 工作日 16:35 全链路）",
               ""]
 

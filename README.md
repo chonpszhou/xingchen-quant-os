@@ -55,6 +55,7 @@
 │   ├── portfolio_view.py        # 组合模拟盘视图（三策略加权画像）
 │   ├── report_weekly.py         # 周报生成器
 │   ├── install_automation.py    # launchd 自动运行安装器
+│   ├── risk_monitor.py          # 风控监控器（回撤/超额/连续跑输）
 │   ├── research_hk_dividend.py  # 港股股息率策略验证（含分红总回报）
 │   ├── research_crypto_trend.py # 加密周频趋势验证
 │   ├── run_all.py               # 一键运行入口（更新/双低/IV/摘要）

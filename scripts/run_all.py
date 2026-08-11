@@ -18,6 +18,7 @@
     python3 scripts/run_all.py weekly     # 周报生成
     python3 scripts/run_all.py portfolio  # 组合模拟盘视图
     python3 scripts/run_all.py test       # 模拟盘前向状态机测试（隔离）
+    python3 scripts/run_all.py risk       # 风控状态（回撤/超额预警）
     python3 scripts/run_all.py all        # 依序执行全部
 
 所有脚本日志追加到 data/logs/run_YYYYMMDD.log。
@@ -136,6 +137,14 @@ def digest():
                   f"- 净值 {rl['nav']:,.0f} | SPY基准 {rl['bench_nav']:,.0f}（超额 {rl['nav'] - rl['bench_nav']:+,.0f}）| "
                   f"净值日 {rl['date'].date()}",
                   ""]
+    # 风控状态
+    risk_file = ROOT / "docs" / "风控状态.md"
+    if risk_file.exists():
+        lines += ["## 风控状态", ""]
+        for line in risk_file.read_text(encoding="utf-8").splitlines():
+            if line.startswith("| ") and not line.startswith("|------") and not line.startswith("| 账户"):
+                lines.append(line)
+        lines.append("")
     lines += ["---", "> 自动生成，仅供学习参考，不构成投资建议。", ""]
     out = ROOT / "docs" / f"投研摘要_{date.today():%Y%m%d}.md"
     out.write_text("\n".join(lines), encoding="utf-8")
@@ -159,13 +168,15 @@ def main():
         "weekly": [("report_weekly.py", ())],
         "portfolio": [("portfolio_view.py", ())],
         "test": [("test_paper_forward.py", ())],
+        "risk": [("risk_monitor.py", ())],
         "all": [("datahub_cli.py", ("update", "--markets", "A股", "港股", "美股", "虚拟货币")),
                 ("run_cb_double_low.py", ()), ("paper_trade_cb.py", ()),
                 ("paper_trade_momentum.py", ()), ("paper_trade_rp.py", ()),
-                ("options_iv_snapshot.py", ()), ("fetch_futures.py", ())],
+                ("options_iv_snapshot.py", ()), ("fetch_futures.py", ()),
+                ("risk_monitor.py", ())],
     }
     if step not in steps:
-        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / test / all")
+        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / test / risk / all")
         return 1
     for script, args in steps[step]:
         run(script, args)
