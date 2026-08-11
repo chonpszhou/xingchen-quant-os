@@ -8,9 +8,12 @@
   2) 模拟盘引擎一致性（回测对照）
   3) 模拟盘前向状态机（25 日回放）
   4) 风控监控器
-  5) 摘要生成
-  6) launchd 自动化状态
-  7) git 工作区干净度
+  5) 回测-模拟一致性监控
+  6) 预期区间生成
+  7) 调仓预告
+  8) 摘要生成
+  9) launchd 自动化状态
+ 10) git 工作区干净度
 
 用法:
     python3 scripts/acceptance_test.py
@@ -52,14 +55,20 @@ def main():
     results.append(run("前向状态机测试", "test_paper_forward.py", timeout=180))
     # 4. 风控
     results.append(run("风控监控器", "risk_monitor.py", timeout=60))
-    # 5. 摘要
+    # 5. 一致性
+    results.append(run("一致性监控", "monitor_backtest_consistency.py", timeout=120))
+    # 6. 预期区间
+    results.append(run("预期区间", "expected_path.py", timeout=120))
+    # 7. 调仓预告
+    results.append(run("调仓预告", "preview_next_rebalance.py", timeout=60))
+    # 8. 摘要
     results.append(run("每日摘要生成", "run_all.py", ("digest",), timeout=120))
-    # 6. launchd
+    # 9. launchd
     agents = list((Path.home() / "Library" / "LaunchAgents").glob("com.xingchen.quant.*.plist"))
-    loaded = len(agents) >= 2
+    loaded = len(agents) >= 3
     results.append(("launchd 自动化", loaded,
                     f"{len(agents)} 个任务: {[p.stem for p in agents]}" if agents else "未安装"))
-    # 7. git
+    # 10. git
     g = subprocess.run(["git", "status", "--short"], capture_output=True, text=True,
                        cwd=ROOT)
     dirty = bool(g.stdout.strip())
