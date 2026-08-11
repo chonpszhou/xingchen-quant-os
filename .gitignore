@@ -16,3 +16,9 @@ __pycache__/
 docs/投研摘要_*.md
 docs/模拟盘月报_*.md
 docs/系统状态.md
+docs/周报_*.md
+docs/连接检查报告.md
+docs/连接检查结果.json
+docs/风控状态.md
+docs/验收报告.md
+docs/组合模拟盘视图.md
