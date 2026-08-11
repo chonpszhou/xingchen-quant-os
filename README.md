@@ -57,6 +57,7 @@
 │   ├── install_automation.py    # launchd 自动运行安装器
 │   ├── setup_wizard.py          # 小白配置向导（凭证/券商/自动化一键）
 │   ├── risk_monitor.py          # 风控监控器（回撤/超额/连续跑输）
+│   ├── monitor_backtest_consistency.py # 回测-模拟一致性监控（实盘门槛②）
 │   ├── research_hk_dividend.py  # 港股股息率策略验证（含分红总回报）
 │   ├── research_crypto_trend.py # 加密周频趋势验证
 │   ├── run_all.py               # 一键运行入口（更新/双低/IV/摘要）
