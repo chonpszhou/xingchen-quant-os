@@ -51,6 +51,9 @@
 │   ├── paper_trade_momentum.py  # 双动量模拟盘（21日调仓+SPY基准）
 │   ├── paper_trade_rp.py        # 风险平价模拟盘（逆波动率配置）
 │   ├── validate_paper_engines.py # 模拟盘引擎一致性校验（重放vs回测）
+│   ├── portfolio_view.py        # 组合模拟盘视图（三策略加权画像）
+│   ├── report_weekly.py         # 周报生成器
+│   ├── install_automation.py    # launchd 自动运行安装器
 │   ├── research_hk_dividend.py  # 港股股息率策略验证（含分红总回报）
 │   ├── research_crypto_trend.py # 加密周频趋势验证
 │   ├── run_all.py               # 一键运行入口（更新/双低/IV/摘要）
@@ -83,6 +86,7 @@
 │   ├── 双动量ETF轮动验证报告.md            # ETF双动量（观察级最强候选）
 │   ├── 风险平价配置验证报告.md             # 逆波动率底仓（回撤 -5.8%）
 │   ├── 系统总览.md                         # 系统架构/策略/使用/风险 一页通
+│   ├── 组合模拟盘视图.md                   # 三策略加权组合画像
 │   ├── 用户操作手册.md                     # 面向小白的完整操作指南
 │   ├── 投研摘要_日期.md                    # 每日一键生成的投研摘要
 │   ├── 模拟盘月报_日期.md                  # 月度模拟盘统计与纪律检查

@@ -15,6 +15,8 @@
     python3 scripts/run_all.py momentum   # 双动量模拟盘推进
     python3 scripts/run_all.py rp         # 风险平价模拟盘推进
     python3 scripts/run_all.py validate   # 模拟盘引擎一致性校验
+    python3 scripts/run_all.py weekly     # 周报生成
+    python3 scripts/run_all.py portfolio  # 组合模拟盘视图
     python3 scripts/run_all.py all        # 依序执行全部
 
 所有脚本日志追加到 data/logs/run_YYYYMMDD.log。
@@ -153,19 +155,22 @@ def main():
         "momentum": [("paper_trade_momentum.py", ())],
         "rp": [("paper_trade_rp.py", ())],
         "validate": [("validate_paper_engines.py", ())],
+        "weekly": [("report_weekly.py", ())],
+        "portfolio": [("portfolio_view.py", ())],
         "all": [("datahub_cli.py", ("update", "--markets", "A股", "港股", "美股", "虚拟货币")),
                 ("run_cb_double_low.py", ()), ("paper_trade_cb.py", ()),
                 ("paper_trade_momentum.py", ()), ("paper_trade_rp.py", ()),
-                ("options_iv_snapshot.py", ()), ("fetch_futures.py", ()),
-                ("push_digest.py", ())],
+                ("options_iv_snapshot.py", ()), ("fetch_futures.py", ())],
     }
     if step not in steps:
-        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / all")
+        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / all")
         return 1
     for script, args in steps[step]:
         run(script, args)
     if step in ("all", "digest"):
         digest()
+        if step == "all":
+            run("push_digest.py")  # 摘要生成后再推送
     log("全部完成")
     return 0
 

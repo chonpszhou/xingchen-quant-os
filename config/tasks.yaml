@@ -77,6 +77,7 @@ tasks:
       title: "星辰投研团 · 周报 第W周"
       format: markdown + 附件(可选 xlsx)
     note: "周日复盘为最高优先级汇总，覆盖未来一周交易计划"
+    note_append: "执行 scripts/report_weekly.py 生成周报（三模拟盘周度+双低TOP+IV+期货），并推送"
 
   # ---------------- 财报季基本面监控（每日早间） ----------------
   - id: earnings_monitor
