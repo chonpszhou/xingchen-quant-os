@@ -2,6 +2,8 @@
 
 跨 A股 / 港股 / 美股 / 虚拟货币 / 期权 的多市场投研监控项目骨架。
 
+> GitHub: https://github.com/chonpszhou/xingchen-quant-os · 详见 [docs/系统总览.md](docs/系统总览.md) 与 [docs/用户操作手册.md](docs/用户操作手册.md)
+
 ## 目录结构
 
 ```
