@@ -1,0 +1,18 @@
+# 数据缓存（可重新抓取，不入库）
+data/
+
+# 凭证与日志
+.env
+*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# 每日/每月自动生成物（以 docs/ 内静态报告为准）
+docs/投研摘要_*.md
+docs/模拟盘月报_*.md
+docs/系统状态.md

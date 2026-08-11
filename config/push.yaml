@@ -1,0 +1,45 @@
+# =====================================================
+# 星辰投研团 · 推送通道配置
+# 凭证统一从项目根目录 .env 读取，此处只声明通道与策略
+# =====================================================
+version: "1.0"
+updated: "2026-08-11"
+
+push:
+  email:
+    enabled: false
+    smtp_host: "${SMTP_HOST}"
+    smtp_port: 465
+    use_ssl: true
+    username: "${SMTP_USER}"
+    password: "${SMTP_PASS}"
+    from_addr: "${SMTP_FROM}"
+    to_addrs: "${MAIL_TO}"          # 英文逗号分隔
+    channels_note: 用于日报/周报等正式汇总
+
+  im:
+    feishu:
+      enabled: false
+      webhook: "${FEISHU_WEBHOOK}"
+      secret: ""                    # 加签密钥（可选，配置后需用签名算法）
+      note: 即时预警首选
+    dingtalk:
+      enabled: false
+      webhook: "${DINGTALK_WEBHOOK}"
+      secret: ""
+    wecom:
+      enabled: false
+      webhook: "${WECOM_WEBHOOK}"
+    serverchan:
+      enabled: false
+      send_key: "${SERVERCHAN_KEY}"
+    pushplus:
+      enabled: false
+      token: "${PUSHPLUS_TOKEN}"
+
+strategy:
+  route:                           # 消息分级路由
+    urgent: {channels: [feishu, wecom], dedup_minutes: 5}      # 急预警：阈值突破
+    normal: {channels: [feishu, dingtalk], dedup_minutes: 30}  # 常规异动
+    digest: {channels: [email, feishu], schedule: 收盘后/周日}  # 汇总速报与周报
+  retry: {max_attempts: 3, backoff_sec: [10, 60, 300]}

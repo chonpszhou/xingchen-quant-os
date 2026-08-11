@@ -1,0 +1,19 @@
+# 星辰投研团 · 运行依赖（Python 3.11+）
+# 安装：pip install -r requirements.txt
+
+# 核心数据处理
+pandas>=2.0
+numpy>=1.24
+pyarrow>=12.0          # parquet 存储
+scipy>=1.10            # 统计检验（HAC t / DSR）
+requests>=2.28         # 直连接口（腾讯/OKX/CBOE/推送）
+PyYAML>=6.0            # 配置文件
+
+# 数据源
+akshare>=1.14          # A股/港股/可转债/指数（免费）
+baostock>=0.8.8        # A股财务/指数成分（免费）
+yfinance>=0.2.40       # 美股行情/期权（备用通道）
+ccxt>=4.0              # 加密行情多交易所（备用）
+
+# 可选增强（未配置 token 时不影响运行）
+# tushare>=1.2.89      # 一致预期/资金流（需注册 token）

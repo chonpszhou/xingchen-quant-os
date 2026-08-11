@@ -1,0 +1,820 @@
+{
+  "version": "1.0",
+  "updated": "2026-08-11",
+  "title": "星辰投研团 · 默认自选股清单",
+  "groups": [
+    "核心持仓",
+    "观察池",
+    "行业基准",
+    "期权工具"
+  ],
+  "code_notes": {
+    "A股": "6位数字代码，兼容东方财富/akshare",
+    "港股": "5位数字代码（含前导0），兼容东方财富/akshare",
+    "美股": "Yahoo/东方财富代码",
+    "虚拟货币": "ccxt 交易对",
+    "期权": "期权相关标的池，用于波动率与对冲监控"
+  },
+  "records": [
+    {
+      "market": "A股",
+      "code": "600519",
+      "symbol": "600519",
+      "name": "贵州茅台",
+      "group": "核心持仓",
+      "industry": "白酒",
+      "style": "大盘价值/消费",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "300750",
+      "symbol": "300750",
+      "name": "宁德时代",
+      "group": "核心持仓",
+      "industry": "电池/新能源",
+      "style": "成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "601318",
+      "symbol": "601318",
+      "name": "中国平安",
+      "group": "核心持仓",
+      "industry": "保险",
+      "style": "大盘价值",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "600036",
+      "symbol": "600036",
+      "name": "招商银行",
+      "group": "核心持仓",
+      "industry": "银行",
+      "style": "大盘价值/红利",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "600900",
+      "symbol": "600900",
+      "name": "长江电力",
+      "group": "核心持仓",
+      "industry": "公用事业/水电",
+      "style": "高股息/防御",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "002594",
+      "symbol": "002594",
+      "name": "比亚迪",
+      "group": "观察池",
+      "industry": "新能源车",
+      "style": "成长/制造",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "688981",
+      "symbol": "688981",
+      "name": "中芯国际",
+      "group": "观察池",
+      "industry": "半导体",
+      "style": "成长/科技",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "603501",
+      "symbol": "603501",
+      "name": "韦尔股份",
+      "group": "观察池",
+      "industry": "半导体设计",
+      "style": "成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "300059",
+      "symbol": "300059",
+      "name": "东方财富",
+      "group": "观察池",
+      "industry": "券商/金融科技",
+      "style": "成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "000858",
+      "symbol": "000858",
+      "name": "五粮液",
+      "group": "观察池",
+      "industry": "白酒",
+      "style": "大盘价值/消费",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "601012",
+      "symbol": "601012",
+      "name": "隆基绿能",
+      "group": "观察池",
+      "industry": "光伏",
+      "style": "周期成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "002415",
+      "symbol": "002415",
+      "name": "海康威视",
+      "group": "观察池",
+      "industry": "安防/AI",
+      "style": "价值成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "510300",
+      "symbol": "510300",
+      "name": "沪深300ETF",
+      "group": "行业基准",
+      "industry": "宽基指数",
+      "style": "大盘基准",
+      "has_options": true,
+      "note": "300ETF期权标的（上交所）"
+    },
+    {
+      "market": "A股",
+      "code": "510050",
+      "symbol": "510050",
+      "name": "上证50ETF",
+      "group": "行业基准",
+      "industry": "宽基指数",
+      "style": "大盘基准",
+      "has_options": true,
+      "note": "50ETF期权标的（上交所）"
+    },
+    {
+      "market": "A股",
+      "code": "159915",
+      "symbol": "159915",
+      "name": "创业板ETF",
+      "group": "行业基准",
+      "industry": "宽基指数",
+      "style": "成长基准",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "A股",
+      "code": "588000",
+      "symbol": "588000",
+      "name": "科创50ETF",
+      "group": "行业基准",
+      "industry": "宽基指数",
+      "style": "科技基准",
+      "has_options": true,
+      "note": "科创50ETF期权标的（上交所）"
+    },
+    {
+      "market": "A股",
+      "code": "512880",
+      "symbol": "512880",
+      "name": "证券ETF",
+      "group": "行业基准",
+      "industry": "行业指数",
+      "style": "金融基准",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "00700",
+      "symbol": "00700",
+      "name": "腾讯控股",
+      "group": "核心持仓",
+      "industry": "互联网/游戏",
+      "style": "大盘成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "09988",
+      "symbol": "09988",
+      "name": "阿里巴巴-W",
+      "group": "核心持仓",
+      "industry": "互联网/电商",
+      "style": "大盘成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "03690",
+      "symbol": "03690",
+      "name": "美团-W",
+      "group": "核心持仓",
+      "industry": "本地生活",
+      "style": "大盘成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "00939",
+      "symbol": "00939",
+      "name": "建设银行",
+      "group": "核心持仓",
+      "industry": "银行",
+      "style": "大盘价值/H股",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "01810",
+      "symbol": "01810",
+      "name": "小米集团-W",
+      "group": "观察池",
+      "industry": "消费电子/汽车",
+      "style": "成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "01024",
+      "symbol": "01024",
+      "name": "快手-W",
+      "group": "观察池",
+      "industry": "短视频",
+      "style": "成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "09618",
+      "symbol": "09618",
+      "name": "京东集团-SW",
+      "group": "观察池",
+      "industry": "电商",
+      "style": "大盘成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "02015",
+      "symbol": "02015",
+      "name": "理想汽车-W",
+      "group": "观察池",
+      "industry": "新能源车",
+      "style": "成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "00981",
+      "symbol": "00981",
+      "name": "中芯国际",
+      "group": "观察池",
+      "industry": "半导体",
+      "style": "成长",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "00388",
+      "symbol": "00388",
+      "name": "香港交易所",
+      "group": "观察池",
+      "industry": "交易所/金融",
+      "style": "垄断/大盘",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "02800",
+      "symbol": "02800",
+      "name": "盈富基金",
+      "group": "行业基准",
+      "industry": "恒生指数",
+      "style": "港股大盘基准",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "03033",
+      "symbol": "03033",
+      "name": "南方恒生科技",
+      "group": "行业基准",
+      "industry": "恒生科技",
+      "style": "港股科技基准",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "港股",
+      "code": "02822",
+      "symbol": "02822",
+      "name": "南方A50",
+      "group": "行业基准",
+      "industry": "A50指数",
+      "style": "A股基准（港股上市）",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "AAPL",
+      "symbol": "AAPL",
+      "name": "苹果",
+      "group": "核心持仓",
+      "industry": "消费电子/硬件",
+      "style": "大盘成长",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "MSFT",
+      "symbol": "MSFT",
+      "name": "微软",
+      "group": "核心持仓",
+      "industry": "软件/云",
+      "style": "大盘成长",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "NVDA",
+      "symbol": "NVDA",
+      "name": "英伟达",
+      "group": "核心持仓",
+      "industry": "AI芯片",
+      "style": "成长/AI",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "GOOGL",
+      "symbol": "GOOGL",
+      "name": "谷歌-A",
+      "group": "核心持仓",
+      "industry": "互联网/搜索",
+      "style": "大盘成长",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "TSLA",
+      "symbol": "TSLA",
+      "name": "特斯拉",
+      "group": "观察池",
+      "industry": "电动车",
+      "style": "高波动成长",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "META",
+      "symbol": "META",
+      "name": "Meta平台",
+      "group": "观察池",
+      "industry": "社交媒体/AI",
+      "style": "大盘成长",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "AMZN",
+      "symbol": "AMZN",
+      "name": "亚马逊",
+      "group": "观察池",
+      "industry": "电商/云",
+      "style": "大盘成长",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "AMD",
+      "symbol": "AMD",
+      "name": "超威半导体",
+      "group": "观察池",
+      "industry": "芯片",
+      "style": "成长",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "NFLX",
+      "symbol": "NFLX",
+      "name": "奈飞",
+      "group": "观察池",
+      "industry": "流媒体",
+      "style": "成长",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "BRK.B",
+      "symbol": "BRK.B",
+      "name": "伯克希尔-B",
+      "group": "观察池",
+      "industry": "保险/多元投资",
+      "style": "大盘价值",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "SPY",
+      "symbol": "SPY",
+      "name": "标普500ETF",
+      "group": "行业基准",
+      "industry": "宽基指数",
+      "style": "美股大盘基准",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "QQQ",
+      "symbol": "QQQ",
+      "name": "纳指100ETF",
+      "group": "行业基准",
+      "industry": "宽基指数",
+      "style": "美股成长基准",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "IWM",
+      "symbol": "IWM",
+      "name": "罗素2000ETF",
+      "group": "行业基准",
+      "industry": "小盘指数",
+      "style": "美股小盘基准",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "美股",
+      "code": "DIA",
+      "symbol": "DIA",
+      "name": "道指ETF",
+      "group": "行业基准",
+      "industry": "蓝筹指数",
+      "style": "美股价值基准",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "虚拟货币",
+      "code": "BTC/USDT",
+      "symbol": "BTC/USDT",
+      "name": "比特币",
+      "group": "核心持仓",
+      "industry": "加密资产",
+      "style": "市值第一/数字黄金",
+      "has_options": true,
+      "note": "Deribit/Bybit 期权"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "ETH/USDT",
+      "symbol": "ETH/USDT",
+      "name": "以太坊",
+      "group": "核心持仓",
+      "industry": "加密资产",
+      "style": "公链龙头",
+      "has_options": true,
+      "note": "Deribit/Bybit 期权"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "SOL/USDT",
+      "symbol": "SOL/USDT",
+      "name": "索拉纳",
+      "group": "观察池",
+      "industry": "公链",
+      "style": "高波动成长",
+      "has_options": true,
+      "note": ""
+    },
+    {
+      "market": "虚拟货币",
+      "code": "BNB/USDT",
+      "symbol": "BNB/USDT",
+      "name": "币安币",
+      "group": "观察池",
+      "industry": "交易所代币",
+      "style": "平台币",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "虚拟货币",
+      "code": "XRP/USDT",
+      "symbol": "XRP/USDT",
+      "name": "瑞波币",
+      "group": "观察池",
+      "industry": "支付",
+      "style": "老牌币种",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "虚拟货币",
+      "code": "DOGE/USDT",
+      "symbol": "DOGE/USDT",
+      "name": "狗狗币",
+      "group": "观察池",
+      "industry": "Meme币",
+      "style": "高波动投机",
+      "has_options": false,
+      "note": ""
+    },
+    {
+      "market": "虚拟货币",
+      "code": "INDEX:TOTAL",
+      "symbol": "INDEX:TOTAL",
+      "name": "加密货币总市值",
+      "group": "行业基准",
+      "industry": "全市场指数",
+      "style": "加密市场基准",
+      "has_options": false,
+      "note": "CoinGecko 指数，非交易标的"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "INDEX:BTCD",
+      "symbol": "INDEX:BTCD",
+      "name": "BTC主导率",
+      "group": "行业基准",
+      "industry": "市场结构",
+      "style": "情绪基准",
+      "has_options": false,
+      "note": "CoinGecko 指标"
+    },
+    {
+      "market": "期权",
+      "code": "510050",
+      "symbol": "510050",
+      "name": "上证50ETF",
+      "group": "期权工具",
+      "industry": "场内期权标的",
+      "style": "50ETF期权（上交所）",
+      "has_options": true,
+      "note": "波动率/对冲监控"
+    },
+    {
+      "market": "期权",
+      "code": "510300",
+      "symbol": "510300",
+      "name": "沪深300ETF(华泰柏瑞)",
+      "group": "期权工具",
+      "industry": "场内期权标的",
+      "style": "300ETF期权（上交所）",
+      "has_options": true,
+      "note": "波动率/对冲监控"
+    },
+    {
+      "market": "期权",
+      "code": "159919",
+      "symbol": "159919",
+      "name": "沪深300ETF(嘉实)",
+      "group": "期权工具",
+      "industry": "场内期权标的",
+      "style": "300ETF期权（深交所）",
+      "has_options": true,
+      "note": "波动率/对冲监控"
+    },
+    {
+      "market": "期权",
+      "code": "588000",
+      "symbol": "588000",
+      "name": "科创50ETF(华夏)",
+      "group": "期权工具",
+      "industry": "场内期权标的",
+      "style": "科创50ETF期权（上交所）",
+      "has_options": true,
+      "note": "波动率/对冲监控"
+    },
+    {
+      "market": "期权",
+      "code": "000300",
+      "symbol": "000300",
+      "name": "沪深300指数",
+      "group": "期权工具",
+      "industry": "股指期权标的",
+      "style": "中金所IO期权",
+      "has_options": true,
+      "note": "指数期权基准"
+    },
+    {
+      "market": "期权",
+      "code": "000852",
+      "symbol": "000852",
+      "name": "中证1000指数",
+      "group": "期权工具",
+      "industry": "股指期权标的",
+      "style": "中金所IM期权",
+      "has_options": true,
+      "note": "指数期权基准"
+    },
+    {
+      "market": "期权",
+      "code": "AAPL",
+      "symbol": "AAPL",
+      "name": "苹果",
+      "group": "期权工具",
+      "industry": "美股个股期权",
+      "style": "高流动性期权链",
+      "has_options": true,
+      "note": "Yahoo 期权链"
+    },
+    {
+      "market": "期权",
+      "code": "NVDA",
+      "symbol": "NVDA",
+      "name": "英伟达",
+      "group": "期权工具",
+      "industry": "美股个股期权",
+      "style": "高IV个股期权",
+      "has_options": true,
+      "note": "Yahoo 期权链"
+    },
+    {
+      "market": "期权",
+      "code": "TSLA",
+      "symbol": "TSLA",
+      "name": "特斯拉",
+      "group": "期权工具",
+      "industry": "美股个股期权",
+      "style": "高IV个股期权",
+      "has_options": true,
+      "note": "Yahoo 期权链"
+    },
+    {
+      "market": "期权",
+      "code": "SPY",
+      "symbol": "SPY",
+      "name": "标普500ETF",
+      "group": "期权工具",
+      "industry": "美股ETF期权",
+      "style": "全球流动性最高期权",
+      "has_options": true,
+      "note": "Yahoo 期权链"
+    },
+    {
+      "market": "期权",
+      "code": "BTC/USDT",
+      "symbol": "BTC/USDT",
+      "name": "比特币",
+      "group": "期权工具",
+      "industry": "加密期权",
+      "style": "Deribit/Bybit",
+      "has_options": true,
+      "note": "加密期权主市场"
+    },
+    {
+      "market": "期权",
+      "code": "ETH/USDT",
+      "symbol": "ETH/USDT",
+      "name": "以太坊",
+      "group": "期权工具",
+      "industry": "加密期权",
+      "style": "Deribit/Bybit",
+      "has_options": true,
+      "note": "加密期权主市场"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "LTC/USDT",
+      "name": "莱特币",
+      "group": "观察池"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "ADA/USDT",
+      "name": "艾达币",
+      "group": "观察池"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "AVAX/USDT",
+      "name": "雪崩币",
+      "group": "观察池"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "LINK/USDT",
+      "name": "链环币",
+      "group": "观察池"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "DOT/USDT",
+      "name": "波卡币",
+      "group": "观察池"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "UNI/USDT",
+      "name": "独角兽币",
+      "group": "观察池"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "ATOM/USDT",
+      "name": "阿童木币",
+      "group": "观察池"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "TRX/USDT",
+      "name": "波场币",
+      "group": "观察池"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "SHIB/USDT",
+      "name": "柴犬币",
+      "group": "观察池"
+    },
+    {
+      "market": "虚拟货币",
+      "code": "POL/USDT",
+      "name": "波卡2.0币",
+      "group": "观察池"
+    },
+    {
+      "market": "期货",
+      "code": "RB0",
+      "name": "螺纹钢主力",
+      "group": "行业基准"
+    },
+    {
+      "market": "期货",
+      "code": "AU0",
+      "name": "沪金主力",
+      "group": "行业基准"
+    },
+    {
+      "market": "期货",
+      "code": "AG0",
+      "name": "沪银主力",
+      "group": "行业基准"
+    },
+    {
+      "market": "期货",
+      "code": "SC0",
+      "name": "原油主力",
+      "group": "行业基准"
+    },
+    {
+      "market": "期货",
+      "code": "CU0",
+      "name": "沪铜主力",
+      "group": "行业基准"
+    },
+    {
+      "market": "期货",
+      "code": "I0",
+      "name": "铁矿石主力",
+      "group": "行业基准"
+    }
+  ]
+}

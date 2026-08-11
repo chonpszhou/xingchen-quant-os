@@ -1,0 +1,80 @@
+# =====================================================
+# 星辰投研团 · 数据源配置
+# 覆盖：A股 / 港股 / 美股 / 虚拟货币 / 期权等衍生品
+# 公开行情接口无需密钥；标注 token 的为可选增强项
+# =====================================================
+version: "1.0"
+updated: "2026-08-11"
+
+markets:
+  a_share:
+    name: A股
+    quote:
+      primary: {driver: akshare, func: stock_zh_a_spot_em, source: 东方财富, auth: false, latency: 实时}
+      fallback: {driver: akshare, func: stock_zh_a_spot, source: 新浪财经, auth: false, latency: 实时}
+    history: {driver: akshare, func: stock_zh_a_hist, source: 东方财富, auth: false, note: 支持前复权 qfq}
+    finance:
+      abstract: {driver: akshare, func: stock_financial_abstract, source: 东方财富F10, auth: false}
+      indicators: {driver: akshare, func: stock_financial_analysis_indicator_em, source: 东方财富, auth: false}
+    optional_enhance:
+      driver: tushare
+      token_env: TUSHARE_TOKEN
+      note: 可选增强：复权因子/资金流/龙虎榜/一致预期
+    code_format: 6位数字，如 600519 / 300750
+
+  hk:
+    name: 港股
+    quote: {driver: akshare, func: stock_hk_spot_em, source: 东方财富, auth: false, latency: 实时}
+    history: {driver: akshare, func: stock_hk_hist, source: 东方财富, auth: false}
+    finance: {driver: akshare, func: stock_financial_hk_analysis_indicator_em, source: 东方财富, auth: false}
+    code_format: 5位数字（含前导0），如 00700 / 09988
+    derivatives_note: 窝轮/牛熊证/期权暂无免费批量接口，建议后续接入 HKEX 或商业数据源
+
+  us:
+    name: 美股
+    quote:
+      primary: {driver: yfinance, source: Yahoo Finance, auth: false, latency: 15分钟延迟}
+      fallback: {driver: akshare, func: stock_us_spot_em, source: 东方财富, auth: false}
+    history: {driver: yfinance, source: Yahoo Finance, auth: false}
+    finance: {driver: yfinance, source: Yahoo Finance, auth: false, fallback: 东方财富 stock_financial_us_analysis_indicator_em}
+    option: {driver: yfinance, func: option_chain, source: Yahoo Finance, auth: false, note: 个股/ETF期权链与希腊字母}
+    code_format: 美股代码，如 AAPL / SPY
+
+  crypto:
+    name: 虚拟货币
+    spot:
+      driver: ccxt
+      exchanges: [binance, okx, bybit, gate]
+      auth: false
+      note: 公共行情无需密钥；多交易所轮询自动容灾
+    option:
+      driver: ccxt
+      exchange: deribit
+      auth: false
+      note: 加密期权以 Deribit 为主市场，Bybit/OKX 期权备选
+    trade:
+      auth: true
+      env_keys: [CCXT_BINANCE_APIKEY, CCXT_BINANCE_SECRET]
+      note: 仅实盘交易需要 API Key，行情查询不需要
+    code_format: 交易对，如 BTC/USDT / ETH/USDT
+
+  futures:
+    name: 期货
+    cn_futures:
+      history: {driver: akshare, func: futures_zh_daily_sina, source: 新浪, auth: false, note: 主力连续合约日线}
+      quote: {driver: akshare, func: futures_zh_spot, source: 新浪, auth: false}
+    crypto_perp:
+      funding: {driver: okx, endpoint: /api/v5/public/funding-rate, source: OKX, auth: false}
+    code_format: 主力连续代码（RB0/AU0/SC0 等）；加密永续 BTC-USDT-SWAP
+
+  option_cn:
+    name: A股场内期权
+    quote: {driver: akshare, func: option_current_em, source: 东方财富, auth: false, note: 50ETF/300ETF/500ETF/科创50ETF期权}
+    iv_index:
+      driver: akshare
+      func: index_option_300etf_qvix
+      source: 中证指数官网
+      auth: false
+      note: 波动率指数（中国版VIX）
+    greeks: {driver: akshare, func: option_sse_greeks_sina, source: 新浪财经, auth: false}
+    index_options: {driver: akshare, func: option_cffex_hs300_spot_sina, source: 新浪财经, auth: false, note: 中金所股指期权 IO/IH/IM}
