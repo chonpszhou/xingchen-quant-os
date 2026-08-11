@@ -1,7 +1,7 @@
 {
   "meta": {
     "project": "星辰投研团",
-    "checked_at": "2026-08-11T19:39:00",
+    "checked_at": "2026-08-11T20:17:01",
     "python": "3.14.3",
     "libraries": {
       "akshare": "1.18.62",
@@ -24,9 +24,9 @@
       "item": "实时行情",
       "source": "东方财富 push2 行情接口（分页直连）",
       "auth_required": false,
-      "status": "异常",
-      "detail": "ProxyError: HTTPSConnectionPool(host='82.push2.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/clist/get?pn=1&pz=10&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f12&fs=m%3A0%2Bt%3A6%2Cm%3A0%2Bt%3A80%2Cm%3A1%2Bt%3A2%2Cm%3A1%2Bt%3A23%2Cm%3A0%2Bt%3A81%2Bs%3A2048&fie…；复检仍失败: ProxyError: HTTPSConnectionPool(host='82.push2.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/clist/get?pn=1&pz=10&po=1&np=1&ut=bd1d9ddb0408970",
-      "elapsed_sec": 5.1
+      "status": "正常",
+      "detail": "接口连通（单页 10 条）；样本 920992 中科美菱 最新价 11.93 涨跌幅 -1.4%（复检通过，首次异常为瞬时网络抖动）",
+      "elapsed_sec": 0.2
     },
     {
       "id": "a_quote_sina",
@@ -36,7 +36,7 @@
       "auth_required": false,
       "status": "正常",
       "detail": "覆盖 5541 只A股；样本 bj920000 安徽凤凰 最新价 14.86",
-      "elapsed_sec": 20.3
+      "elapsed_sec": 17.9
     },
     {
       "id": "a_fin",
@@ -46,7 +46,7 @@
       "auth_required": false,
       "status": "正常",
       "detail": "取到 102 个报告期 × 80 项指标（净利润/营业总收入/报告期）",
-      "elapsed_sec": 0.6
+      "elapsed_sec": 0.3
     },
     {
       "id": "a_hist",
@@ -56,7 +56,7 @@
       "auth_required": false,
       "status": "异常",
       "detail": "ProxyError: HTTPSConnectionPool(host='33.push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/kline/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&ut=7eea3edcaed734bea9cbfc24409ed989&klt=101&fqt=1&secid=1.60…；复检仍失败: ProxyError: HTTPSConnectionPool(host='33.push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/kline/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5",
-      "elapsed_sec": 5.1
+      "elapsed_sec": 4.8
     },
     {
       "id": "hk_quote",
@@ -66,7 +66,7 @@
       "auth_required": false,
       "status": "异常",
       "detail": "ProxyError: HTTPSConnectionPool(host='82.push2.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/clist/get?pn=1&pz=10&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f12&fs=m%3A128%2Bt%3A3%2Cm%3A128%2Bt%3A4%2Cm%3A128%2Bt%3A1%2Cm%3A128%2Bt%3A2&fields=f2%2Cf3%2Cf12%2Cf1…；复检仍失败: ProxyError: HTTPSConnectionPool(host='82.push2.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/clist/get?pn=1&pz=10&po=1&np=1&ut=bd1d9ddb0408970",
-      "elapsed_sec": 5.3
+      "elapsed_sec": 4.8
     },
     {
       "id": "hk_fin",
@@ -76,7 +76,7 @@
       "auth_required": false,
       "status": "正常",
       "detail": "取到 9 条年度财务指标（腾讯控股）",
-      "elapsed_sec": 0.1
+      "elapsed_sec": 0.2
     },
     {
       "id": "hk_hist",
@@ -84,9 +84,9 @@
       "item": "历史K线",
       "source": "东方财富 push2his 港股K线接口（直连）",
       "auth_required": false,
-      "status": "正常",
-      "detail": "近 12 个交易日；最近一条 2026-08-11,481.200,470.800,483.800,469.600,19558079,9250170880.000,2.95,-2.20,-10.600,0.22",
-      "elapsed_sec": 0.1
+      "status": "异常",
+      "detail": "ProxyError: HTTPSConnectionPool(host='33.push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/kline/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61&ut=7eea3edcaed734bea9cbfc24409ed989&klt=101&fqt=0&secid=116.…；复检仍失败: ProxyError: HTTPSConnectionPool(host='33.push2his.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/stock/kline/get?fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5",
+      "elapsed_sec": 4.7
     },
     {
       "id": "us_quote",
@@ -96,7 +96,7 @@
       "auth_required": false,
       "status": "异常",
       "detail": "YFRateLimitError: Too Many Requests. Rate limited. Try after a while.；复检仍失败: YFRateLimitError: Too Many Requests. Rate limited. Try after a while.",
-      "elapsed_sec": 28.5
+      "elapsed_sec": 25.0
     },
     {
       "id": "us_fin",
@@ -116,7 +116,7 @@
       "auth_required": false,
       "status": "异常",
       "detail": "YFRateLimitError: Too Many Requests. Rate limited. Try after a while.；复检仍失败: YFRateLimitError: Too Many Requests. Rate limited. Try after a while.",
-      "elapsed_sec": 20.7
+      "elapsed_sec": 20.3
     },
     {
       "id": "crypto_quote",
@@ -125,8 +125,8 @@
       "source": "OKX / Gate / Binance 行情接口直连",
       "auth_required": false,
       "status": "正常",
-      "detail": "可用交易所: OKX, Gate；受限: Binance:地区限制(451)",
-      "elapsed_sec": 1.6
+      "detail": "可用交易所: OKX, Gate, Binance",
+      "elapsed_sec": 1.9
     },
     {
       "id": "crypto_option",
@@ -135,8 +135,8 @@
       "source": "Deribit 行情接口直连（加密期权主市场）",
       "auth_required": false,
       "status": "正常",
-      "detail": "Deribit 连通，BTC 指数价格 64290.22",
-      "elapsed_sec": 0.6
+      "detail": "Deribit 连通，BTC 指数价格 64354.56",
+      "elapsed_sec": 0.7
     },
     {
       "id": "cn_option",
@@ -146,7 +146,7 @@
       "auth_required": false,
       "status": "异常",
       "detail": "ProxyError: HTTPSConnectionPool(host='82.push2.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/clist/get?pn=1&pz=10&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f12&fs=m%3A10%2Cm%3A12%2Cm%3A140%2Cm%3A141%2Cm%3A151%2Cm%3A163%2Cm%3A226&fields=f2%2Cf3%2Cf12%2Cf14 (C…；复检仍失败: ProxyError: HTTPSConnectionPool(host='82.push2.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/clist/get?pn=1&pz=10&po=1&np=1&ut=bd1d9ddb0408970",
-      "elapsed_sec": 5.0
+      "elapsed_sec": 4.8
     },
     {
       "id": "cn_iv",
@@ -156,7 +156,7 @@
       "auth_required": false,
       "status": "正常",
       "detail": "最新一条: date=2026-08-10 | open=20.12 | high=20.12 | low=19.54",
-      "elapsed_sec": 1.8
+      "elapsed_sec": 1.9
     },
     {
       "id": "push_email",
@@ -226,7 +226,7 @@
       "auth_required": false,
       "status": "正常",
       "detail": "螺纹钢主力 4219 根，截至 2026-08-11",
-      "elapsed_sec": 0.3
+      "elapsed_sec": 0.4
     },
     {
       "id": "cboe_iv",
@@ -236,7 +236,7 @@
       "auth_required": false,
       "status": "正常",
       "detail": "VIX 历史 9247 行，末行 08/10/2026,15.400000,15.720000,15.100000,15.460000",
-      "elapsed_sec": 1.8
+      "elapsed_sec": 1.5
     },
     {
       "id": "cb_panel",
@@ -246,7 +246,7 @@
       "auth_required": false,
       "status": "正常",
       "detail": "面板 1032 只转债，数据截至 2026-08-11",
-      "elapsed_sec": 0.2
+      "elapsed_sec": 0.1
     },
     {
       "id": "paper_cb",
@@ -275,8 +275,8 @@
       "source": "OKX 公开接口",
       "auth_required": false,
       "status": "正常",
-      "detail": "BTC 永续费率 0.0061%",
-      "elapsed_sec": 0.4
+      "detail": "BTC 永续费率 0.0058%",
+      "elapsed_sec": 0.5
     }
   ]
 }
