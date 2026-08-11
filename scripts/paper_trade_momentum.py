@@ -13,9 +13,11 @@
 用法：
     python3 scripts/paper_trade_momentum.py            # 每日推进
     python3 scripts/paper_trade_momentum.py --reset    # 重置
+    python3 scripts/paper_trade_momentum.py --as-of 2026-08-01   # 历史回放（测试用）
 """
 
 import argparse
+import os
 import json
 import sys
 from datetime import date
@@ -34,27 +36,38 @@ SAFE = "TLT"
 LOOKBACKS = (63, 126, 252)
 REBALANCE_DAYS = 21
 COST = 0.001
-STATE_FILE = ROOT / "data" / "paper_mom_state.json"
-NAV_FILE = ROOT / "data" / "paper_mom_nav.parquet"
+_STATEDIR = Path(os.environ.get("PAPER_STATE_DIR", str(ROOT / "data")))
+STATE_FILE = _STATEDIR / "paper_mom_state.json"
+NAV_FILE = _STATEDIR / "paper_mom_nav.parquet"
 
 
-def latest_prices(store):
+def latest_prices(store, as_of=None):
     prices, dates = {}, {}
     for sym in ASSETS + [SAFE]:
         df = store.load_bars("美股", sym)
         if df is None or df.empty:
             return None, None
-        prices[sym] = float(df["close"].iloc[-1])
-        dates[sym] = str(df["date"].iloc[-1].date())
+        if as_of is not None:
+            d = df[df["date"] <= pd.Timestamp(as_of)]
+            if d.empty:
+                return None, None
+            prices[sym] = float(d["close"].iloc[-1])
+            dates[sym] = str(d["date"].iloc[-1].date())
+        else:
+            prices[sym] = float(df["close"].iloc[-1])
+            dates[sym] = str(df["date"].iloc[-1].date())
     return prices, dates
 
 
-def momentum_scores(store):
+def momentum_scores(store, as_of=None):
     close = {}
     for sym in ASSETS:
         df = store.load_bars("美股", sym)
         if df is not None:
-            close[sym] = df.set_index("date")["close"]
+            s = df.set_index("date")["close"]
+            if as_of is not None:
+                s = s[s.index <= pd.Timestamp(as_of)]
+            close[sym] = s
     if len(close) != len(ASSETS):
         return None
     c = pd.DataFrame(close)
@@ -75,15 +88,17 @@ def save_state(st):
     STATE_FILE.write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def trade_days_since(last):
+def trade_days_since(last, today=None):
     if last is None:
         return 999
-    return max(1, int((pd.Timestamp(date.today()) - pd.Timestamp(last)).days * 252 / 365))
+    cur = pd.Timestamp(today) if today else pd.Timestamp(date.today())
+    return max(1, int((cur - pd.Timestamp(last)).days * 252 / 365))
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--reset", action="store_true")
+    p.add_argument("--as-of", default="")
     args = p.parse_args()
     if args.reset:
         save_state({"cash": 1_000_000.0, "holdings": {}, "last_rebalance": None,
@@ -94,13 +109,14 @@ def main():
         return
 
     store = LocalStore(str(ROOT / "data"))
-    prices, dates = latest_prices(store)
+    as_of = args.as_of or None
+    today = str(date.today()) if not as_of else as_of
+    prices, dates = latest_prices(store, as_of)
     if prices is None:
         print("本地缺少 ETF 数据，先运行 python3 scripts/run_all.py update")
         return
     st = load_state()
-    today = str(date.today())
-    due = trade_days_since(st["last_rebalance"]) >= REBALANCE_DAYS
+    due = trade_days_since(st["last_rebalance"], today) >= REBALANCE_DAYS
 
     # 持仓盯市（策略 + SPY 基准）
     for code, h in st["holdings"].items():
@@ -112,7 +128,7 @@ def main():
     bench_nav = 1_000_000.0 * prices["SPY"] / st["spy_entry"]
 
     if due:
-        scores = momentum_scores(store)
+        scores = momentum_scores(store, as_of)
         if scores:
             best = max(scores, key=scores.get)
             pick = best if scores[best] > 0 else SAFE
@@ -148,7 +164,7 @@ def main():
     print(f"净值 {nav:,.0f}（SPY基准 {bench_nav:,.0f}）| 持仓 {list(st['holdings'].keys())} | "
           f"调仓 {st['rebalance_count']} 次 | 数据截至 {dates.get(list(st['holdings'])[0] if st['holdings'] else 'SPY', '-')}")
     if not due:
-        print(f"距下次调仓约 {REBALANCE_DAYS - trade_days_since(st['last_rebalance'])} 交易日")
+        print(f"距下次调仓约 {REBALANCE_DAYS - trade_days_since(st['last_rebalance'], today)} 交易日")
 
 
 if __name__ == "__main__":

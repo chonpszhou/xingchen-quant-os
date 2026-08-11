@@ -17,6 +17,7 @@
     python3 scripts/run_all.py validate   # 模拟盘引擎一致性校验
     python3 scripts/run_all.py weekly     # 周报生成
     python3 scripts/run_all.py portfolio  # 组合模拟盘视图
+    python3 scripts/run_all.py test       # 模拟盘前向状态机测试（隔离）
     python3 scripts/run_all.py all        # 依序执行全部
 
 所有脚本日志追加到 data/logs/run_YYYYMMDD.log。
@@ -157,13 +158,14 @@ def main():
         "validate": [("validate_paper_engines.py", ())],
         "weekly": [("report_weekly.py", ())],
         "portfolio": [("portfolio_view.py", ())],
+        "test": [("test_paper_forward.py", ())],
         "all": [("datahub_cli.py", ("update", "--markets", "A股", "港股", "美股", "虚拟货币")),
                 ("run_cb_double_low.py", ()), ("paper_trade_cb.py", ()),
                 ("paper_trade_momentum.py", ()), ("paper_trade_rp.py", ()),
                 ("options_iv_snapshot.py", ()), ("fetch_futures.py", ())],
     }
     if step not in steps:
-        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / all")
+        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / test / all")
         return 1
     for script, args in steps[step]:
         run(script, args)

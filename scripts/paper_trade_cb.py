@@ -16,9 +16,11 @@
 用法:
     python3 scripts/paper_trade_cb.py            # 每日更新（模拟盘推进）
     python3 scripts/paper_trade_cb.py --reset    # 重置模拟盘
+    python3 scripts/paper_trade_cb.py --as-of 2026-08-01   # 历史回放（测试用，面板数据）
 """
 
 import argparse
+import os
 import json
 import sys
 from datetime import date
@@ -38,8 +40,9 @@ PRICE_CAP = 130.0
 PREMIUM_CAP = 50.0
 MIN_LISTED_DAYS = 30  # 自然日
 REBALANCE_DAYS = 20   # 交易日
-STATE_FILE = ROOT / "data" / "paper_cb_state.json"
-NAV_FILE = ROOT / "data" / "paper_cb_nav.parquet"
+_STATEDIR = Path(os.environ.get("PAPER_STATE_DIR", str(ROOT / "data")))
+STATE_FILE = _STATEDIR / "paper_cb_state.json"
+NAV_FILE = _STATEDIR / "paper_cb_nav.parquet"
 
 
 def fetch_snapshot():
@@ -68,6 +71,32 @@ def fetch_snapshot():
     return target, bench
 
 
+def fetch_snapshot_panel(as_of):
+    """从本地面板重建历史快照（--as-of 测试用），与 live 快照同口径"""
+    panel = pd.read_parquet(ROOT / "data" / "cb_panel.parquet")
+    meta = pd.read_parquet(ROOT / "data" / "cb_meta.parquet")
+    meta["code"] = meta["code"].astype(str).str.zfill(6)
+    meta["rating"] = meta["rating"].astype(str)
+    panel["date"] = pd.to_datetime(panel["date"])
+    panel = panel[panel["date"] <= pd.Timestamp(as_of)]
+    panel = panel[panel["bond"].str.startswith(("110", "111", "113", "118", "123", "127", "128"))]
+    latest = panel.loc[panel.groupby("bond")["date"].idxmax()]  # 绕开 sort_values 的 pandas/numpy bug
+    meta_s = meta[["code", "stock_name", "rating"]].rename(columns={"code": "meta_code"})
+    latest = latest.merge(meta_s, left_on="bond", right_on="meta_code")
+    latest = latest.drop(columns=["meta_code"])
+    bad = latest["stock_name"].astype(str).str.contains("ST") | latest["rating"].str.startswith("C") \
+        | latest["rating"].isna()
+    latest = latest[~bad]
+    cnt = panel.groupby("bond").size()
+    latest = latest[latest["bond"].map(cnt) >= 20]
+    latest = latest[(latest["close"] <= PRICE_CAP) & (latest["premium_pct"] <= PREMIUM_CAP)]
+    latest["score"] = latest["close"] + latest["premium_pct"]
+    bench = latest.sort_values("score")
+    target = bench.head(N_HOLD)
+    cols = {"bond": "code", "close": "price", "premium_pct": "premium"}
+    return target.rename(columns=cols), bench.rename(columns=cols)
+
+
 def load_state():
     if STATE_FILE.exists():
         return json.loads(STATE_FILE.read_text(encoding="utf-8"))
@@ -79,16 +108,18 @@ def save_state(st):
     STATE_FILE.write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def trade_days_since(last):
+def trade_days_since(last, today=None):
     """用本地交易日历粗算两个日期间交易日数（近 252 日/年近似）"""
     if last is None:
         return 999
-    return max(1, int((pd.Timestamp(date.today()) - pd.Timestamp(last)).days * 252 / 365))
+    cur = pd.Timestamp(today) if today else pd.Timestamp(date.today())
+    return max(1, int((cur - pd.Timestamp(last)).days * 252 / 365))
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--reset", action="store_true")
+    p.add_argument("--as-of", default="")
     args = p.parse_args()
     if args.reset:
         save_state({"cash": 1_000_000.0, "holdings": {}, "last_rebalance": None,
@@ -98,12 +129,13 @@ def main():
         print("模拟盘已重置")
         return
 
-    target, bench = fetch_snapshot()
+    as_of = args.as_of or None
+    today = str(date.today()) if not as_of else as_of
+    target, bench = fetch_snapshot_panel(as_of) if as_of else fetch_snapshot()
     st = load_state()
     st.setdefault("bench_cash", 1_000_000.0)
     st.setdefault("bench_holdings", {})
-    today = str(date.today())
-    due = trade_days_since(st["last_rebalance"]) >= REBALANCE_DAYS
+    due = trade_days_since(st["last_rebalance"], today) >= REBALANCE_DAYS
 
     prices = target.set_index("code")["price"].to_dict()
     prices.update(bench.set_index("code")["price"].to_dict())
@@ -184,7 +216,7 @@ def main():
         for code, h in sorted(st["holdings"].items(), key=lambda x: -x[1]["value"])[:5]:
             print(f"  {code}: {h['shares']:.0f} 张 @ {h['last_price']:.2f} = {h['value']:,.0f}")
     if not due:
-        print(f"\n距下次调仓约 {REBALANCE_DAYS - trade_days_since(st['last_rebalance'])} 交易日")
+        print(f"\n距下次调仓约 {REBALANCE_DAYS - trade_days_since(st['last_rebalance'], today)} 交易日")
 
 
 if __name__ == "__main__":

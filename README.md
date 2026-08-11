@@ -51,6 +51,7 @@
 │   ├── paper_trade_momentum.py  # 双动量模拟盘（21日调仓+SPY基准）
 │   ├── paper_trade_rp.py        # 风险平价模拟盘（逆波动率配置）
 │   ├── validate_paper_engines.py # 模拟盘引擎一致性校验（重放vs回测）
+│   ├── test_paper_forward.py     # 模拟盘前向状态机测试（25日回放，隔离运行）
 │   ├── portfolio_view.py        # 组合模拟盘视图（三策略加权画像）
 │   ├── report_weekly.py         # 周报生成器
 │   ├── install_automation.py    # launchd 自动运行安装器

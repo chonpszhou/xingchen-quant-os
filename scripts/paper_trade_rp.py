@@ -13,9 +13,11 @@
 用法：
     python3 scripts/paper_trade_rp.py            # 每日推进
     python3 scripts/paper_trade_rp.py --reset    # 重置
+    python3 scripts/paper_trade_rp.py --as-of 2026-08-01   # 历史回放（测试用）
 """
 
 import argparse
+import os
 import json
 import sys
 from datetime import date
@@ -33,28 +35,39 @@ ASSETS = ["SPY", "GLD", "TLT", "DBC"]
 REBALANCE_DAYS = 21
 COST = 0.001
 TARGET_VOL = 0.08
-STATE_FILE = ROOT / "data" / "paper_rp_state.json"
-NAV_FILE = ROOT / "data" / "paper_rp_nav.parquet"
+_STATEDIR = Path(os.environ.get("PAPER_STATE_DIR", str(ROOT / "data")))
+STATE_FILE = _STATEDIR / "paper_rp_state.json"
+NAV_FILE = _STATEDIR / "paper_rp_nav.parquet"
 
 
-def latest_prices(store):
+def latest_prices(store, as_of=None):
     prices, dates = {}, {}
     for sym in ASSETS:
         df = store.load_bars("美股", sym)
         if df is None or df.empty:
             return None, None
-        prices[sym] = float(df["close"].iloc[-1])
-        dates[sym] = str(df["date"].iloc[-1].date())
+        if as_of is not None:
+            d = df[df["date"] <= pd.Timestamp(as_of)]
+            if d.empty:
+                return None, None
+            prices[sym] = float(d["close"].iloc[-1])
+            dates[sym] = str(d["date"].iloc[-1].date())
+        else:
+            prices[sym] = float(df["close"].iloc[-1])
+            dates[sym] = str(df["date"].iloc[-1].date())
     return prices, dates
 
 
-def target_weights(store, prices):
+def target_weights(store, prices, as_of=None):
     vols = {}
     for sym in ASSETS:
         df = store.load_bars("美股", sym)
         if df is None or len(df) < 30:
             return None
-        r = df.set_index("date")["close"].pct_change().tail(20)
+        s = df.set_index("date")["close"]
+        if as_of is not None:
+            s = s[s.index <= pd.Timestamp(as_of)]
+        r = s.pct_change().tail(20)
         vols[sym] = float(r.std() * np.sqrt(252))
     w = pd.Series({s: 1.0 / max(v, 1e-4) for s, v in vols.items()})
     w = w / w.sum()
@@ -74,15 +87,17 @@ def save_state(st):
     STATE_FILE.write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def trade_days_since(last):
+def trade_days_since(last, today=None):
     if last is None:
         return 999
-    return max(1, int((pd.Timestamp(date.today()) - pd.Timestamp(last)).days * 252 / 365))
+    cur = pd.Timestamp(today) if today else pd.Timestamp(date.today())
+    return max(1, int((cur - pd.Timestamp(last)).days * 252 / 365))
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--reset", action="store_true")
+    p.add_argument("--as-of", default="")
     args = p.parse_args()
     if args.reset:
         save_state({"cash": 1_000_000.0, "holdings": {}, "last_rebalance": None,
@@ -93,13 +108,14 @@ def main():
         return
 
     store = LocalStore(str(ROOT / "data"))
-    prices, dates = latest_prices(store)
+    as_of = args.as_of or None
+    today = str(date.today()) if not as_of else as_of
+    prices, dates = latest_prices(store, as_of)
     if prices is None:
         print("本地缺少 ETF 数据，先运行 python3 scripts/run_all.py update")
         return
     st = load_state()
-    today = str(date.today())
-    due = trade_days_since(st["last_rebalance"]) >= REBALANCE_DAYS
+    due = trade_days_since(st["last_rebalance"], today) >= REBALANCE_DAYS
     if not st.get("spy_entry"):
         st["spy_entry"] = prices["SPY"]
 
@@ -111,7 +127,7 @@ def main():
     bench_nav = 1_000_000.0 * prices["SPY"] / st["spy_entry"]
 
     if due:
-        w = target_weights(store, prices)
+        w = target_weights(store, prices, as_of)
         if w:
             invest = nav * 0.98
             target_value = {s: w[s] * invest for s in ASSETS}
@@ -157,7 +173,7 @@ def main():
         for s, h in sorted(st["holdings"].items(), key=lambda x: -x[1]["value"]):
             print(f"  {s}: {h['value']:,.0f} ({h['value'] / nav:.0%})")
     if not due:
-        print(f"距下次调仓约 {REBALANCE_DAYS - trade_days_since(st['last_rebalance'])} 交易日")
+        print(f"距下次调仓约 {REBALANCE_DAYS - trade_days_since(st['last_rebalance'], today)} 交易日")
 
 
 if __name__ == "__main__":
