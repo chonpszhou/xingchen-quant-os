@@ -155,6 +155,109 @@ def read_md_table(path):
             if l.startswith("| ") and not l.startswith("|---")]
 
 
+def engine_nav(strategy):
+    """从引擎 SQLite 取回测净值（绩效体检数据源）"""
+    try:
+        from engine.database import Database
+        df = Database(ROOT / "data" / "engine.sqlite").nav_series(strategy)
+        if df.empty:
+            return None
+        return df.set_index("date")["nav"]
+    except Exception:
+        return None
+
+
+def tear_sheet(strategy):
+    """绩效体检（借鉴 jesse metrics / quantstats tear sheet）"""
+    nav = engine_nav(strategy)
+    if nav is None or len(nav) < 5:
+        return "<p class='muted'>回测数据积累中（先跑 engine_cli 回测）</p>"
+    s = nav
+    r = s.pct_change().dropna()
+    years = len(r) / 252
+    ann = (s.iloc[-1] / s.iloc[0]) ** (1 / years) - 1 if years > 0 else 0
+    vol = r.std() * 252 ** 0.5
+    sharpe = (ann - 0.02) / vol if vol > 0 else 0
+    dd = float(((s - s.cummax()) / s.cummax()).min())
+    monthly = s.resample("ME").last().pct_change().dropna()
+    wr = float((monthly > 0).mean())
+    pf = float(monthly[monthly > 0].sum() / abs(monthly[monthly < 0].sum())) if (monthly < 0).any() else float("nan")
+    # 回撤曲线
+    dds = ((s - s.cummax()) / s.cummax()) * 100
+    dd_pts = " ".join(f"{i/(len(dds)-1)*300:.1f},{50 - v*1.2:.1f}" for i, v in enumerate(dds.values))
+    # 滚动夏普（60 日）
+    rs = r.rolling(60).mean() / r.rolling(60).std() * 252 ** 0.5
+    rs = rs.dropna()
+    rs_pts = " ".join(f"{i/(len(rs)-1)*300:.1f},{40 - min(max(v,-2),2)*18:.1f}" for i, v in enumerate(rs.values)) if len(rs) > 1 else ""
+    # 月度热力图
+    cells = ""
+    for year, grp in monthly.groupby(monthly.index.year):
+        for m in range(1, 13):
+            v = grp.get(grp.index.month == m)
+            val = float(v.iloc[0]) if len(v) else None
+            if val is None:
+                cells += "<td style='background:#0f172a'></td>"
+            else:
+                tone = "rgba(34,197,94,%.2f)" % min(abs(val) / 0.12, 1) if val >= 0 else "rgba(239,68,68,%.2f)" % min(abs(val) / 0.12, 1)
+                cells += f"<td style='background:{tone}'>{val:+.1%}</td>"
+        cells += "</tr><tr>"
+    return f"""
+    <div class="stat">
+      <div>年化<b>{ann:.2%}</b></div><div>夏普<b>{sharpe:.2f}</b></div>
+      <div>最大回撤<b style="color:{'#f87171' if dd < -0.2 else '#e2e8f0'}">{dd:.1%}</b></div>
+      <div>月度胜率<b>{wr:.0%}</b></div><div>盈亏比<b>{pf:.2f}</b></div>
+    </div>
+    <h3>回撤曲线</h3>
+    <svg viewBox="0 0 300 50" style="width:100%;height:50px"><polyline fill="none" stroke="#f87171" stroke-width="1.5" points="{dd_pts}"/></svg>
+    <h3>滚动夏普（60日）</h3>
+    <svg viewBox="0 0 300 45" style="width:100%;height:45px"><polyline fill="none" stroke="#60a5fa" stroke-width="1.5" points="{rs_pts}"/></svg>
+    <h3>月度收益热力图</h3>
+    <table style="font-size:11px"><tr><th></th>{"".join(f"<th>{m}月</th>" for m in range(1,13))}</tr><tr>{cells}</table>
+    """
+
+
+def trades_view():
+    """最近交易记录（借鉴 octobot/jesse 交易视图，数据源 engine.sqlite）"""
+    try:
+        from engine.database import Database
+        t = Database(ROOT / "data" / "engine.sqlite").trades()
+        if t.empty:
+            return "<p class='muted'>暂无交易流水（先跑 engine_cli 回测或纸面）</p>"
+        t = t.tail(50).iloc[::-1]
+        rows = "".join(
+            f"<tr><td>{r['strategy']}</td><td>{str(r['date'])[:10]}</td><td>{r['symbol']}</td>"
+            f"<td><span class=\"{'up' if r['direction']=='buy' else 'down'}\">{r['direction']}</span></td>"
+            f"<td>{r['price']:.2f}</td><td>{r['value']:,.0f}</td><td>{r['cost']:.0f}</td></tr>"
+            for _, r in t.iterrows())
+        return (f"<div class='stat'><div>交易笔数<b>{len(t)}（近50）</b></div></div>"
+                f"<table><tr><th>策略</th><th>日期</th><th>标的</th><th>方向</th><th>价格</th><th>金额</th><th>成本</th></tr>{rows}</table>")
+    except Exception:
+        return "<p class='muted'>交易库不可用</p>"
+
+
+def market_view():
+    """自选行情（本地库最后两日涨跌，借鉴 OpenBB/OctoBot 行情视图）"""
+    sys.path.insert(0, str(ROOT))
+    from datahub.store import LocalStore
+    store = LocalStore(str(ROOT / "data"))
+    rows = []
+    for market, sym in (("A股", "600519"), ("A股", "300750"), ("A股", "000001"),
+                        ("美股", "SPY"), ("美股", "NVDA"), ("美股", "AAPL"),
+                        ("虚拟货币", "BTC/USDT"), ("虚拟货币", "ETH/USDT"), ("虚拟货币", "SOL/USDT"),
+                        ("港股", "00700"), ("港股", "09988"), ("期货", "AU0")):
+        df = store.load_bars(market, sym)
+        if df is None or len(df) < 2:
+            continue
+        px = float(df["close"].iloc[-1])
+        chg = px / float(df["close"].iloc[-2]) - 1
+        rows.append((f"{market} {sym}", px, chg))
+    rows.sort(key=lambda x: -abs(x[2]))
+    body = "".join(
+        f"<tr><td>{n}</td><td>{p:,.2f}</td><td><b class=\"{'up' if c>=0 else 'down'}\">{c:+.2%}</b></td></tr>"
+        for n, p, c in rows)
+    return f"<table><tr><th>标的</th><th>最新价</th><th>日涨跌</th></tr>{body}</table>"
+
+
 def render():
     accounts = nav_data()
     cards = ""
@@ -206,6 +309,11 @@ def render():
         trade_txt = f"{len(Database(ROOT / 'data' / 'engine.sqlite').trades())} 笔"
     except Exception:
         pass
+    tear_tabs = ""
+    tear_panels = ""
+    for st in ("dual_momentum", "risk_parity", "cb_double_low"):
+        tear_tabs += f"<button class='tab t2 active' onclick=\"document.querySelectorAll('.tp').forEach(x=>x.classList.remove('active'));document.getElementById('tp-{st}').classList.add('active');this.parentNode.querySelectorAll('.t2').forEach(x=>x.classList.remove('active'));this.classList.add('active')\">{st}</button>"
+        tear_panels += f"<div id='tp-{st}' class='tp active'>{tear_sheet(st)}</div>"
     return f"""<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>星辰投研团 · 量化操作系统</title>
 <style>
@@ -252,6 +360,9 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 .stat div{{font-size:13px;color:#94a3b8}}
 .stat b{{color:#e2e8f0;font-size:16px;display:block}}
 .refresh{{font-size:12px;color:#64748b;cursor:pointer;background:none;border:1px solid #334155;border-radius:8px;padding:4px 10px}}
+.tp{{display:none}}.tp.active{{display:block}}
+.t2{{font-size:12px;padding:5px 12px;margin-right:6px;border:0;border-radius:6px;background:#111c2e;color:#94a3b8;cursor:pointer}}
+.t2.active{{background:#1e3a8a;color:#93c5fd}}
 </style></head><body>
 <div class="top"><h1>📊 星辰投研团 · 量化操作系统</h1>
 <span id="pill" class="pill">自运转</span><button class="refresh" onclick="toggleRefresh()">自动刷新</button></div>
@@ -259,8 +370,10 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 <button class="tab active" data-t="overview">概览</button>
 <button class="tab" data-t="strategies">策略</button>
 <button class="tab" data-t="risk">风控</button>
+<button class="tab" data-t="health">体检</button>
+<button class="tab" data-t="trades">交易</button>
 <button class="tab" data-t="ops">操作台</button>
-<button class="tab" data-t="data">数据</button>
+<button class="tab" data-t="data">行情/数据</button>
 <button class="tab" data-t="reports">报告</button></div>
 <section id="overview" class="active">
 <div class="hero"><h2 style="margin-top:0">组合净值（三策略等权）</h2>{hero}</div>
@@ -274,9 +387,13 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 <a class="rep" href="/file/一致性监控.md">回测-模拟一致性</a>
 <a class="rep" href="/file/模拟盘预期区间.md">预期区间</a>
 <a class="rep" href="/file/下次调仓预告.md">调仓预告</a></section>
+<section id="health"><h2>策略体检（引擎回测绩效，借鉴 jesse/quantstats）</h2>
+<div>{tear_tabs}</div><div style="margin-top:12px">{tear_panels}</div></section>
+<section id="trades"><h2>交易记录（引擎 SQLite）</h2>{trades_view()}</section>
 <section id="ops"><h2>操作台</h2><div>{btns}</div>
 <p id="runstate" class="muted"></p><pre id="output">就绪。点击按钮触发任务，输出实时显示。</pre></section>
-<section id="data"><h2>数据新鲜度</h2>
+<section id="data"><h2>自选行情（本地两日涨跌）</h2>{market_view()}
+<h2>数据新鲜度</h2>
 <table><tr><th>市场</th><th>标的数</th><th>状态</th></tr>{fresh}</table>
 <h2>市场摘要</h2><div class="stat"><div>期权 IV<b>{iv_line or '—'}</b></div></div></section>
 <section id="reports"><h2>报告（最近 12 份）</h2><div>{reports or '<span class="muted">暂无</span>'}</div></section>
