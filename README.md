@@ -157,6 +157,19 @@ docker compose up -d xingchen-web       # 容器访问 http://localhost:8080
 > 注意：Docker 与 launchd 二选一，勿同时启用（会重复执行每日任务）。
 > 若改用 Docker，先卸载 launchd：`python3 scripts/install_automation.py uninstall`
 
+## 平台引擎（v4，事件驱动核心）
+
+对标 vnpy/freqtrade 的分层架构，策略与数据/执行/风控解耦：
+
+```bash
+python3 scripts/engine_cli.py --strategy dual_momentum --mode backtest    # 回测
+python3 scripts/engine_cli.py --strategy cb_double_low --mode paper       # 当前信号
+python3 scripts/engine_cli.py --strategy risk_parity --mode backtest      # 回测
+```
+
+架构与迁移说明见 [docs/平台架构设计.md](docs/平台架构设计.md)；
+交易/净值流水持久化于 `data/engine.sqlite`；策略参数见 `config/strategies.yaml`。
+
 ## 数据层（DataHub）
 
 统一收口 akshare / yfinance / 新浪 / 东方财富 / OKX / Gate，把自选股清单变成可落库的历史数据：

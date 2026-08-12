@@ -1,0 +1,16 @@
+# 策略配置（引擎加载，新增策略=在 strategies/ 写类并在此登记参数）
+version: "1.0"
+
+strategies:
+  dual_momentum:
+    assets: [SPY, GLD, DBC]
+    safe: TLT
+    lookbacks: [63, 126, 252]
+    rebalance: 21
+  risk_parity:
+    assets: [SPY, GLD, TLT, DBC]
+    target_vol: 0.08
+    rebalance: 21
+  cb_double_low:
+    n_hold: 20
+    rebalance: 20
