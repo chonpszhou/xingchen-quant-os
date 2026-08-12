@@ -34,7 +34,7 @@ push:
       enabled: false
       send_key: "${SERVERCHAN_KEY}"
     pushplus:
-      enabled: false
+      enabled: true
       token: "${PUSHPLUS_TOKEN}"
 
 strategy:
