@@ -23,6 +23,7 @@
     python3 scripts/run_all.py expected  # 模拟盘预期区间（回测分布）
     python3 scripts/run_all.py preview   # 下次调仓预告（当前信号）
     python3 scripts/run_all.py learn     # 每日量化学习（GitHub+RSS）
+    python3 scripts/run_all.py learn_hourly # 每小时轻学习（成果卡片）
     python3 scripts/run_all.py all        # 依序执行全部
 
 所有脚本日志追加到 data/logs/run_YYYYMMDD.log。
@@ -177,6 +178,7 @@ def main():
         "expected": [("expected_path.py", ())],
         "preview": [("preview_next_rebalance.py", ())],
         "learn": [("learn_daily.py", ())],
+        "learn_hourly": [("learn_hourly.py", ())],
         "all": [("datahub_cli.py", ("update", "--markets", "A股", "港股", "美股", "虚拟货币")),
                 ("run_cb_double_low.py", ()), ("paper_trade_cb.py", ()),
                 ("paper_trade_momentum.py", ()), ("paper_trade_rp.py", ()),
@@ -184,7 +186,7 @@ def main():
                 ("risk_monitor.py", ()), ("monitor_backtest_consistency.py", ())],
     }
     if step not in steps:
-        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / test / risk / consistency / expected / preview / learn / all")
+        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / test / risk / consistency / expected / preview / learn / learn_hourly / all")
         return 1
     for script, args in steps[step]:
         run(script, args)

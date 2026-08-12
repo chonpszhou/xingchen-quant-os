@@ -280,6 +280,28 @@ def market_view():
 def learning_view():
     """每日量化学习：最新笔记 + 最近条目"""
     notes = sorted((ROOT / "docs").glob("学习笔记_*.md"), reverse=True)
+    hourly = ROOT / "docs" / f"学习日志_{date.today():%Y-%m-%d}.md"
+    hourly_html = ""
+    if hourly.exists():
+        lines = hourly.read_text(encoding="utf-8").splitlines()
+        entries = []
+        cur = []
+        for l in lines:
+            if l.startswith("### "):
+                if cur:
+                    entries.append(cur)
+                cur = [l]
+            elif cur:
+                cur.append(l)
+        if cur:
+            entries.append(cur)
+        for e in entries[-10:][::-1]:
+            title = next((x for x in e if x.startswith("- 标题：")), "")
+            core = next((x for x in e if x.startswith("- 核心观点")), "")
+            hypo = next((x for x in e if x.startswith("- 可测假设")), "")
+            hourly_html += (f"<div class='card' style='margin-bottom:10px'><b>{e[0][4:]}</b><br>"
+                            f"<span style='font-size:13px;color:#cbd5e1'>{title[5:][:60]}<br>"
+                            f"{core[6:][:90]}<br><span style='color:#60a5fa'>{hypo[6:][:90]}</span></span></div>")
     items_html = ""
     log = ROOT / "data" / "learning_log.parquet"
     if log.exists():
@@ -291,6 +313,7 @@ def learning_view():
                 f"<td>{r['date']}</td></tr>" for _, r in df.iterrows())
     note_link = f"<a class='rep' href='/file/{notes[0].name}'>最新学习笔记（{notes[0].stem.replace('学习笔记_','')}）</a>" if notes else ""
     return (f"<div>{note_link}</div>"
+            f"<h2>每小时学习成果（今天）</h2>{hourly_html or '<p class=\"muted\">暂无每小时记录</p>'}"
             f"<h2>最近条目（累计 {len(df) if log.exists() else 0}）</h2>"
             f"<table><tr><th>来源</th><th>标题</th><th>日期</th></tr>{items_html or '<tr><td class=\"muted\">暂无</td></tr>'}</table>")
 

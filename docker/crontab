@@ -8,6 +8,9 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # 工作日 08:00：每日量化学习（GitHub + RSS）
 0 8 * * 1-5 root cd /app && python3 scripts/learn_daily.py >> /var/log/xingchen.log 2>&1
 
+# 每小时整点：轻学习（未读池轮转 + 成果卡片）
+0 * * * * root cd /app && python3 scripts/learn_hourly.py >> /var/log/xingchen.log 2>&1
+
 # 周日 20:00：周报 + 推送
 0 20 * * 0 root cd /app && python3 scripts/report_weekly.py >> /var/log/xingchen.log 2>&1 && python3 scripts/push_digest.py >> /var/log/xingchen.log 2>&1
 
