@@ -12,6 +12,11 @@
 用法:
     python3 scripts/setup_wizard.py              # 交互式
     python3 scripts/setup_wizard.py --auto       # 非交互（跳过凭证，仅装自动化+复检）
+    python3 scripts/setup_wizard.py --pushplus TOKEN      # 一键：微信推送（PushPlus）
+    python3 scripts/setup_wizard.py --serverchan KEY     # 一键：微信推送（Server酱）
+    python3 scripts/setup_wizard.py --feishu URL         # 一键：飞书群机器人
+    python3 scripts/setup_wizard.py --dingtalk URL       # 一键：钉钉群机器人
+    python3 scripts/setup_wizard.py --wecom URL          # 一键：企业微信群机器人
 """
 
 import argparse
@@ -19,8 +24,68 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parent.parent
 PY = sys.executable
+PUSH_YAML = ROOT / "config" / "push.yaml"
+ENV_FILE = ROOT / ".env"
+
+CHANNEL_ENV = {
+    "pushplus": "PUSHPLUS_TOKEN",
+    "serverchan": "SERVERCHAN_KEY",
+    "feishu": "FEISHU_WEBHOOK",
+    "dingtalk": "DINGTALK_WEBHOOK",
+    "wecom": "WECOM_WEBHOOK",
+}
+
+
+def write_env(key, value):
+    """写 .env（追加或更新）"""
+    lines = []
+    if ENV_FILE.exists():
+        lines = ENV_FILE.read_text(encoding="utf-8").splitlines()
+    found = False
+    for i, l in enumerate(lines):
+        if l.startswith(f"{key}="):
+            lines[i] = f"{key}={value}"
+            found = True
+            break
+    if not found:
+        lines.append(f"{key}={value}")
+    ENV_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"✓ .env 已写入 {key}")
+
+
+def enable_channel(channel):
+    """把 config/push.yaml 中对应通道 enabled 改为 true"""
+    text = PUSH_YAML.read_text(encoding="utf-8")
+    if channel == "email":
+        # 仅启用 email 段（第一个顶层 enabled: false 属于 email）
+        text = text.replace("enabled: false", "enabled: true", 1)
+    else:
+        # 定位通道块内第一个 enabled: false → true
+        lines = text.splitlines(keepends=True)
+        inside = False
+        for i, l in enumerate(lines):
+            if l.strip().startswith(f"{channel}:"):
+                inside = True
+                continue
+            if inside and l.strip() == "enabled: false":
+                lines[i] = l.replace("false", "true")
+                break
+            if inside and l and not l[0].isspace():
+                inside = False
+        text = "".join(lines)
+    PUSH_YAML.write_text(text, encoding="utf-8")
+    print(f"✓ config/push.yaml 已启用 {channel}")
+
+
+def quick_configure(channel, value):
+    write_env(CHANNEL_ENV[channel], value)
+    enable_channel(channel)
+    print(f"\n推送已配置（{channel}）。验证：python3 scripts/push_digest.py --check")
+    print("立即测试：python3 scripts/push_digest.py --text '星辰投研团 · 推送测试'")
 
 
 def ask(prompt, default=""):
@@ -31,9 +96,7 @@ def ask(prompt, default=""):
 
 
 def setup_env(auto=False):
-    env_file = ROOT / ".env"
-    example = ROOT / ".env.example"
-    if env_file.exists():
+    if ENV_FILE.exists():
         print("✓ .env 已存在（如需修改请直接编辑）")
         return
     if auto:
@@ -53,12 +116,12 @@ def setup_env(auto=False):
             f"SMTP_HOST={smtp_host}", "SMTP_PORT=465", f"SMTP_USER={smtp_user}",
             f"SMTP_PASS={smtp_pass}", f"SMTP_FROM={smtp_user}", f"MAIL_TO={mail_to}",
         ]
-        env_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        ENV_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print("✓ 邮件凭证已写入 .env（还需在 config/push.yaml 把 email.enabled 改为 true）")
         return
     webhook = ask("IM webhook 地址（飞书/钉钉/企微任选，可留空跳过）")
     if webhook:
-        env_file.write_text(f"FEISHU_WEBHOOK={webhook}\n", encoding="utf-8")
+        ENV_FILE.write_text(f"FEISHU_WEBHOOK={webhook}\n", encoding="utf-8")
         print("✓ webhook 已写入 .env（还需在 config/push.yaml 把对应通道 enabled 改为 true）")
 
 
@@ -85,8 +148,18 @@ def setup_automation(auto=False):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--auto", action="store_true")
+    for ch in CHANNEL_ENV:
+        p.add_argument(f"--{ch}", default="", help=f"一键配置 {ch}（见用法）")
     args = p.parse_args()
     print("星辰投研团 · 配置向导\n" + "=" * 40)
+    for ch, val in vars(args).items():
+        if ch != "auto" and val:
+            quick_configure(ch, val)
+            setup_automation(args.auto)
+            print("\n=== 连接检查复检 ===")
+            subprocess.call([PY, str(ROOT / "scripts" / "check_connections.py")])
+            print("\n配置完成！")
+            return
     setup_env(args.auto)
     setup_broker(args.auto)
     setup_automation(args.auto)
