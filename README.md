@@ -151,6 +151,9 @@ python3 scripts/dashboard.py            # 本机访问 http://127.0.0.1:8080
 docker compose up -d xingchen-web       # 容器访问 http://localhost:8080
 ```
 
+看板含**操作台**：一键触发数据更新/双低监控/摘要/风控/验收等任务，实时看输出
+（仅限本机访问，Docker 端口已绑定 127.0.0.1）。
+
 > 注意：Docker 与 launchd 二选一，勿同时启用（会重复执行每日任务）。
 > 若改用 Docker，先卸载 launchd：`python3 scripts/install_automation.py uninstall`
 

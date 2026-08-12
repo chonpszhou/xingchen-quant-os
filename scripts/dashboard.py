@@ -14,7 +14,10 @@
 
 import argparse
 import json
+import subprocess
 import sys
+import threading
+import time
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -22,6 +25,44 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
+
+ACTIONS = {
+    "数据更新(四市场)": ["datahub_cli.py", "update", "--markets", "A股", "港股", "美股", "虚拟货币"],
+    "全链路(每日任务)": ["run_all.py", "all"],
+    "双低监控+模拟盘": ["run_all.py", "cb"],
+    "生成摘要": ["run_all.py", "digest"],
+    "风控检查": ["run_all.py", "risk"],
+    "一致性监控": ["run_all.py", "consistency"],
+    "验收测试(10项)": ["run_all.py", "test"],
+    "调仓预告": ["run_all.py", "preview"],
+    "周报": ["run_all.py", "weekly"],
+    "月报": ["run_all.py", "monthly"],
+    "期权IV快照": ["run_all.py", "iv"],
+    "期货更新": ["run_all.py", "futures"],
+}
+
+_lock = threading.Lock()
+_running = {"task": None, "started": None, "log": []}
+
+
+def run_task(name, args):
+    """后台执行任务，输出追加到环形日志"""
+    cmd = [sys.executable, str(ROOT / "scripts" / args[0]), *args[1:]]
+    _running.update({"task": name, "started": time.strftime("%H:%M:%S"), "log": []})
+    try:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             text=True, cwd=ROOT)
+        for line in p.stdout:
+            _running["log"].append(line.rstrip())
+            if len(_running["log"]) > 400:
+                _running["log"] = _running["log"][-400:]
+        p.wait()
+        _running["log"].append(f"[完成] 退出码 {p.returncode}")
+    except Exception as e:  # noqa: BLE001
+        _running["log"].append(f"[错误] {e}")
+    finally:
+        _running["task"] = None
+        _running["started"] = None
 
 
 def nav_data():
@@ -111,6 +152,9 @@ def render():
     fresh = "".join(f"<tr><td>{m}</td><td>{n}</td><td>{s}</td></tr>" for m, n, s in freshness())
     risk = "".join(f"<tr>{''.join(f'<td>{c}</td>' for c in l.split('|')[1:-1])}</tr>"
                    for l in read_md_table("风控状态.md"))
+    btns = "".join(
+        f'<button class="btn" data-key="{i}" onclick="runTask({i})">{name}</button>'
+        for i, name in enumerate(ACTIONS))
     return f"""<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>星辰投研团 · 看板</title>
@@ -128,9 +172,17 @@ td,th{{padding:6px 10px;border-bottom:1px solid #334155;text-align:left}}
 th{{color:#93c5fd;font-weight:600}}
 .wrap{{max-width:1100px;margin:auto}}
 .updated{{color:#64748b;font-size:12px;margin-top:20px}}
+.btn{{background:#2563eb;color:#fff;border:0;border-radius:8px;padding:8px 14px;margin:4px;cursor:pointer;font-size:13px}}
+.btn:disabled{{background:#475569;cursor:not-allowed}}
+#output{{background:#0b1220;border:1px solid #334155;border-radius:8px;padding:12px;font-size:12px;
+white-space:pre-wrap;height:220px;overflow:auto;font-family:ui-monospace,monospace}}
 </style></head><body><div class="wrap">
 <h1>📊 星辰投研团 · 量化操作系统看板</h1>
 <div class="grid">{cards}</div>
+<h2>操作台</h2>
+<div>{btns}</div>
+<p id="runstate" style="font-size:13px;color:#94a3b8"></p>
+<pre id="output">就绪。点击按钮触发任务，输出实时显示。</pre>
 <h2>风控状态</h2><table>{risk or "<tr><td>数据积累中</td></tr>"}</table>
 <h2>可转债双低 TOP10</h2>
 <table><tr><th>名称</th><th>价格</th><th>溢价</th><th>双低值</th><th>评级</th></tr>{top}</table>
@@ -143,12 +195,52 @@ th{{color:#93c5fd;font-weight:600}}
 <a href="/file/模拟盘预期区间.md" style="color:#60a5fa">预期区间</a> ·
 <a href="/file/下次调仓预告.md" style="color:#60a5fa">调仓预告</a>
 </p>
-<div class="updated">自动生成 · 仅供学习研究参考，不构成投资建议 · 刷新查看最新</div>
+<div class="updated">自动生成 · 仅供学习研究参考，不构成投资建议 · 操作台仅限本机访问</div>
+<script>
+const keys = {json.dumps(list(ACTIONS), ensure_ascii=False)};
+let poll = null;
+function runTask(i) {{
+  document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+  fetch('/api/run?key=' + i).then(r => r.json()).then(j => {{
+    document.getElementById('runstate').textContent = '正在运行: ' + keys[j.key] + '（' + j.started + '）';
+    poll = setInterval(pollLog, 1500);
+  }});
+}}
+function pollLog() {{
+  fetch('/api/log').then(r => r.json()).then(j => {{
+    const o = document.getElementById('output');
+    o.textContent = j.log.join('\\n') || '（无输出）';
+    o.scrollTop = o.scrollHeight;
+    if (!j.running) {{
+      clearInterval(poll);
+      document.getElementById('runstate').textContent = '完成：' + j.task;
+      document.querySelectorAll('.btn').forEach(b => b.disabled = false);
+    }}
+  }});
+}}
+</script>
 </div></body></html>"""
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path.startswith("/api/run"):
+            from urllib.parse import parse_qs, urlparse
+            q = parse_qs(urlparse(self.path).query)
+            key = int(q.get("key", ["0"])[0])
+            name = list(ACTIONS)[key]
+            if not _lock.acquire(blocking=False):
+                self._json({"error": "已有任务在运行"}, 409)
+                return
+            threading.Thread(target=lambda: (run_task(name, ACTIONS[name]), _lock.release()),
+                             daemon=True).start()
+            self._json({"started": True, "key": key, "task": name,
+                        "started": _running["started"]})
+            return
+        if self.path.startswith("/api/log"):
+            self._json({"running": _running["task"] is not None,
+                        "task": _running["task"], "log": _running["log"]})
+            return
         if self.path.startswith("/file/"):
             name = self.path.split("/file/", 1)[1]
             p = ROOT / "docs" / name
@@ -168,6 +260,14 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json(self, obj, code=200):
+        body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
