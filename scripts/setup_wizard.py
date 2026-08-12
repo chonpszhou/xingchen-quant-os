@@ -149,16 +149,25 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--auto", action="store_true")
     for ch in CHANNEL_ENV:
-        p.add_argument(f"--{ch}", default="", help=f"一键配置 {ch}（见用法）")
+        p.add_argument(f"--{ch}", nargs="?", const="", default=None, help=f"一键配置 {ch}（可只写 --{ch} 后交互输入）")
     args = p.parse_args()
     print("星辰投研团 · 配置向导\n" + "=" * 40)
     for ch, val in vars(args).items():
         if ch != "auto" and val:
             quick_configure(ch, val)
-            setup_automation(args.auto)
-            print("\n=== 连接检查复检 ===")
-            subprocess.call([PY, str(ROOT / "scripts" / "check_connections.py")])
-            print("\n配置完成！")
+            print("\n配置完成！立即验证：")
+            print(f"  python3 scripts/push_digest.py --check")
+            print(f"  python3 scripts/push_digest.py --text '星辰投研团 · 推送测试'")
+            return
+        if ch != "auto" and val is not None and val == "":
+            token = input(f"请输入 {ch} 的 token/地址（可直接粘贴）: ").strip()
+            if not token:
+                print(f"跳过 {ch} 配置")
+                continue
+            quick_configure(ch, token)
+            print("\n配置完成！立即验证：")
+            print(f"  python3 scripts/push_digest.py --check")
+            print(f"  python3 scripts/push_digest.py --text '星辰投研团 · 推送测试'")
             return
     setup_env(args.auto)
     setup_broker(args.auto)
