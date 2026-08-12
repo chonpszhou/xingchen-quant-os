@@ -8,12 +8,15 @@ from .object import BarData
 
 
 class BacktestEngine:
-    def __init__(self, strategy, executor, risk=None, rebalance_every: int = 1):
+    def __init__(self, strategy, executor, risk=None, rebalance_every: int = 1,
+                 exit_manager=None):
         self.strategy = strategy
         self.executor = executor
         self.risk = risk
         self.rebalance_every = rebalance_every
+        self.exit_manager = exit_manager
         self.i = 0
+        self.exit_trades = 0
 
     def run(self, close: pd.DataFrame, start=None, end=None, record_nav=True):
         """按 close 逐根 K 线回测；t+1 执行（信号于 T 日收盘，T+1 收盘价成交）"""
@@ -29,6 +32,13 @@ class BacktestEngine:
         for i, (dt, row) in enumerate(rows):
             self.i = i
             prices = row.dropna().to_dict()
+            self.executor.update_highs(prices)
+            # 止盈止损退出（每根K线检查，自动执行）
+            if self.exit_manager:
+                for sym, reason in self.exit_manager.check(
+                        self.executor.positions_with_cost(prices), prices, dt).items():
+                    self.executor.sell_position(sym, prices.get(sym, 0.0), dt, reason)
+                    self.exit_trades += 1
             # 先执行昨日信号（t+1 收盘价）
             if pending:
                 if self.risk:

@@ -1,0 +1,19 @@
+# 止盈止损退出规则（逐策略配置；0 或缺失=不启用该规则）
+version: "1.0"
+
+exits:
+  dual_momentum:
+    stop_loss: 0.12        # 单标的持仓 -12% 止损
+    take_profit: 0.0       # 不固定止盈（移动止损接管）
+    trailing: 0.10         # 从持仓高点回撤 10% 移动止损
+    max_hold_days: 0       # 不设时间止损
+  risk_parity:
+    stop_loss: 0.0
+    take_profit: 0.0
+    trailing: 0.0
+    max_hold_days: 0
+  cb_double_low:
+    stop_loss: 0.15        # 单券 -15% 止损（信用风险兜底）
+    take_profit: 0.30      # 单券 +30% 止盈（强赎前锁定）
+    trailing: 0.0
+    max_hold_days: 0

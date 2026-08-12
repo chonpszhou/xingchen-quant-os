@@ -32,6 +32,9 @@ class PaperExecutor(Executor):
         self.db = db
         self.strategy_name = strategy_name
         self._last: dict[str, float] = {}        # 最后已知价（停牌/退市盯市）
+        self._high: dict[str, float] = {}        # 持仓期最高价（移动止损用）
+        self._cost: dict[str, float] = {}        # 持仓平均成本
+        self._entry: dict[str, str] = {}         # 建仓日期
 
     def _price(self, sym, prices):
         return prices.get(sym, self._last.get(sym, 0.0))
@@ -55,9 +58,16 @@ class PaperExecutor(Executor):
             if abs(delta) < 100:
                 continue
             shares = delta / px
-            self.positions[sym] = self.positions.get(sym, 0.0) + shares
+            old_sh, old_cost = self.positions.get(sym, 0.0), self._cost.get(sym, 0.0)
+            new_sh = old_sh + shares
+            self.positions[sym] = new_sh
+            if new_sh > 1e-6:
+                self._cost[sym] = (old_sh * old_cost + shares * px) / new_sh
+                self._entry.setdefault(sym, str(date)[:10])
             if self.positions[sym] < 1e-6:
                 del self.positions[sym]
+                self._cost.pop(sym, None)
+                self._entry.pop(sym, None)
             self.cash -= delta * (1 + self.cost if delta > 0 else 1 - self.cost)
             turnover_cost += abs(delta) * self.cost
             self._record(date, sym, "buy" if delta > 0 else "sell", px, delta)
@@ -68,6 +78,8 @@ class PaperExecutor(Executor):
                 self.cash += val * (1 - self.cost)
                 turnover_cost += val * self.cost
                 del self.positions[sym]
+                self._cost.pop(sym, None)
+                self._entry.pop(sym, None)
                 self._record(date, sym, "sell", self._price(sym, prices), -val)
         self.history.append((date, self.nav(prices)))
         if self.db:
@@ -81,3 +93,31 @@ class PaperExecutor(Executor):
 
     def positions(self):
         return dict(self.positions)
+
+    def positions_with_cost(self, prices=None) -> dict:
+        """{symbol: (shares, avg_cost, entry_date, high_since_entry)}"""
+        out = {}
+        prices = prices or {}
+        high = getattr(self, "_high", {})
+        for sym, sh in self.positions.items():
+            out[sym] = (sh, self._cost.get(sym, 0.0),
+                        self._entry.get(sym, ""), high.get(sym, self._price(sym, prices)))
+        return out
+
+    def sell_position(self, sym, price, date, reason=""):
+        """清仓（止盈止损触发）"""
+        sh = self.positions.get(sym, 0.0)
+        if sh <= 0 or price <= 0:
+            return 0.0
+        val = sh * price
+        self.cash += val * (1 - self.cost)
+        cost_val = val * self.cost
+        del self.positions[sym]
+        self._cost.pop(sym, None)
+        self._entry.pop(sym, None)
+        self._record(date, sym, "sell", price, -val)
+        self.history.append((date, self.nav({sym: price})))
+        return cost_val
+
+    def update_highs(self, prices):
+        self._high = {s: max(self._high.get(s, 0.0), px) for s, px in prices.items() if px > 0}

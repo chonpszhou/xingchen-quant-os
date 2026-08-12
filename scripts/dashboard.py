@@ -235,6 +235,25 @@ def trades_view():
         return "<p class='muted'>交易库不可用</p>"
 
 
+def paper_positions_view():
+    """纸面持仓视图（含止盈止损状态提示）"""
+    rows = []
+    for name, f in (("双低", "paper_cb"), ("双动量", "paper_mom"), ("风险平价", "paper_rp")):
+        p = ROOT / "data" / f"{f}_state.json"
+        if not p.exists():
+            continue
+        st = json.loads(p.read_text(encoding="utf-8"))
+        for sym, h in st.get("holdings", {}).items():
+            rows.append((name, sym, h.get("shares", 0), h.get("last_price", 0), h.get("value", 0)))
+    if not rows:
+        return "<p class='muted'>暂无纸面持仓</p>"
+    body = "".join(
+        f"<tr><td>{n}</td><td>{s}</td><td>{sh:,.0f}</td><td>{px:,.2f}</td><td>{val:,.0f}</td></tr>"
+        for n, s, sh, px, val in rows[:30])
+    return (f"<div class='stat'><div>持仓<b>{len(rows)}</b></div></div>"
+            f"<table><tr><th>策略</th><th>标的</th><th>数量</th><th>最新价</th><th>市值</th></tr>{body}</table>")
+
+
 def market_view():
     """自选行情（本地库最后两日涨跌，借鉴 OpenBB/OctoBot 行情视图）"""
     sys.path.insert(0, str(ROOT))
@@ -389,7 +408,8 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 <a class="rep" href="/file/下次调仓预告.md">调仓预告</a></section>
 <section id="health"><h2>策略体检（引擎回测绩效，借鉴 jesse/quantstats）</h2>
 <div>{tear_tabs}</div><div style="margin-top:12px">{tear_panels}</div></section>
-<section id="trades"><h2>交易记录（引擎 SQLite）</h2>{trades_view()}</section>
+<section id="trades"><h2>纸面持仓</h2>{paper_positions_view()}
+<h2>交易记录（引擎 SQLite，含止盈止损自动退出）</h2>{trades_view()}</section>
 <section id="ops"><h2>操作台</h2><div>{btns}</div>
 <p id="runstate" class="muted"></p><pre id="output">就绪。点击按钮触发任务，输出实时显示。</pre></section>
 <section id="data"><h2>自选行情（本地两日涨跌）</h2>{market_view()}
