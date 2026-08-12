@@ -14,6 +14,8 @@ class Strategy:
     def __init__(self, data_service=None, **kwargs):
         self.ds = data_service
         self.engine = None
+        # 实例级参数合并（寻优时 kwargs 覆盖类默认 params）
+        self.params = {**dict(getattr(self.__class__, "params", {})), **kwargs}
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -45,5 +47,7 @@ def get_strategy(name: str, **kwargs) -> Strategy:
         raise KeyError(f"未注册策略: {name}，可用 {list(REGISTRY)}")
     cls = REGISTRY[name]
     sig = inspect.signature(cls.__init__)
-    params = {k: v for k, v in kwargs.items() if k in sig.parameters}
+    has_varkw = any(p.kind == inspect.Parameter.VAR_KEYWORD
+                    for p in sig.parameters.values())
+    params = kwargs if has_varkw else {k: v for k, v in kwargs.items() if k in sig.parameters}
     return cls(**params)

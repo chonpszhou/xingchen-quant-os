@@ -35,11 +35,13 @@ class PaperExecutor(Executor):
         self._high: dict[str, float] = {}        # 持仓期最高价（移动止损用）
         self._cost: dict[str, float] = {}        # 持仓平均成本
         self._entry: dict[str, str] = {}         # 建仓日期
+        self.trade_count = 0
 
     def _price(self, sym, prices):
         return prices.get(sym, self._last.get(sym, 0.0))
 
     def _record(self, date, symbol, direction, price, delta):
+        self.trade_count += 1
         if self.db:
             self.db.record_trade(self.strategy_name, date, symbol, direction,
                                  price, abs(delta), abs(delta) * self.cost)

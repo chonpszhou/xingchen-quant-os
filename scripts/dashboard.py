@@ -411,6 +411,13 @@ def render():
                 c = [x.strip() for x in l.split("|")[1:-1]]
                 iv_line = f"VIX {c[2]}（2年分位 {c[3]}）"
                 break
+    gex_line = ""
+    gex = ROOT / "docs" / "期权GEX快照.md"
+    if gex.exists():
+        for l in gex.read_text(encoding="utf-8").splitlines():
+            if l.startswith("| SPY") or l.startswith("| QQQ"):
+                c = [x.strip() for x in l.split("|")[1:-1]]
+                gex_line += f" | {c[0]} ZG={c[2]} CW={c[3]}"
     trade_txt = "—"
     try:
         from engine.database import Database
@@ -510,7 +517,8 @@ h3{{font-size:14px;color:#93c5fd}}
 <section id="data"><h2>自选行情（本地两日涨跌）</h2>{market_view()}
 <h2>数据新鲜度</h2>
 <table><tr><th>市场</th><th>标的数</th><th>状态</th></tr>{fresh}</table>
-<div class="stat"><div>期权 IV<b>{iv_line or '—'}</b></div></div></section>
+<div class="stat"><div>期权 IV<b>{iv_line or '—'}</b></div>
+<div>GEX（SPY/QQQ）<b>{gex_line or '数据待补'}</b></div></div></section>
 <section id="learn"><h2>每日量化学习</h2>{learning_view()}</section>
 <section id="reports"><h2>报告（最近 12 份）</h2><div>{reports or '<span class="muted">暂无</span>'}</div></section>
 <div style="padding:0 24px"><div class="updated">自动生成 · 仅供学习研究参考，不构成投资建议 · 仅限本机访问 · {pd.Timestamp.now():%H:%M:%S}</div></div>

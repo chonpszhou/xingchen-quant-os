@@ -9,12 +9,13 @@ from .object import BarData
 
 class BacktestEngine:
     def __init__(self, strategy, executor, risk=None, rebalance_every: int = 1,
-                 exit_manager=None):
+                 exit_manager=None, atr_frame=None):
         self.strategy = strategy
         self.executor = executor
         self.risk = risk
         self.rebalance_every = rebalance_every
         self.exit_manager = exit_manager
+        self.atr_frame = atr_frame
         self.i = 0
         self.exit_trades = 0
 
@@ -31,12 +32,15 @@ class BacktestEngine:
         rows = list(close.iterrows())
         for i, (dt, row) in enumerate(rows):
             self.i = i
+            self.strategy.i = i  # 把 K 线索引传给策略（调仓节奏依赖它）
             prices = row.dropna().to_dict()
             self.executor.update_highs(prices)
             # 止盈止损退出（每根K线检查，自动执行）
             if self.exit_manager:
+                atr_row = self.atr_frame.loc[dt].to_dict() if self.atr_frame is not None and dt in self.atr_frame.index else None
                 for sym, reason in self.exit_manager.check(
-                        self.executor.positions_with_cost(prices), prices, dt).items():
+                        self.executor.positions_with_cost(prices), prices, dt,
+                        atr=atr_row).items():
                     self.executor.sell_position(sym, prices.get(sym, 0.0), dt, reason)
                     self.exit_trades += 1
             # 先执行昨日信号（t+1 收盘价）

@@ -23,6 +23,17 @@ class DataService:
                 out[s] = df.set_index("date")["close"]
         return pd.DataFrame(out).sort_index()
 
+    def ohlcv(self, market: str, symbols: list[str]) -> dict[str, pd.DataFrame]:
+        """返回 close/high/low 三个对齐宽表（ATR 等需要 OHLC）"""
+        frames = {"close": {}, "high": {}, "low": {}}
+        for s in symbols:
+            df = self.store.load_bars(market, s)
+            if df is not None:
+                d = df.set_index("date")
+                for f in frames:
+                    frames[f][s] = d[f]
+        return {f: pd.DataFrame(d).sort_index() for f, d in frames.items()}
+
     def status(self) -> pd.DataFrame:
         return self.store.all_status()
 

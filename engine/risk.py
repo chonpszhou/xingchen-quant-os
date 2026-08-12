@@ -5,11 +5,13 @@ from __future__ import annotations
 
 class RiskEngine:
     def __init__(self, max_positions: int = 20, max_single_weight: float = 1.0,
-                 drawdown_breaker: float = 0.0):
+                 drawdown_breaker: float = 0.0, daily_loss_circuit: float = 0.0):
         self.max_positions = max_positions
         self.max_single_weight = max_single_weight
         self.drawdown_breaker = drawdown_breaker   # 0=关闭；0.2=回撤20%熔断
+        self.daily_loss_circuit = daily_loss_circuit  # 0=关闭；0.05=单日亏5%熔断
         self.peak_nav = 0.0
+        self._day_pnl = 0.0
 
     def pre_trade(self, weights: dict, nav: float) -> tuple[bool, str]:
         if nav <= 0:
@@ -25,3 +27,20 @@ class RiskEngine:
 
     def post_trade(self, nav: float):
         self.peak_nav = max(self.peak_nav, nav)
+
+    # ---- 凯利保守仓位（自 paddy-quant-workbench 合并） ----
+    def kelly_fraction_value(self, win_rate: float, payoff_ratio: float,
+                             kelly_fraction: float = 0.5,
+                             max_single_pct: float = 0.20) -> float:
+        """建议仓位比例 = 保守凯利，且不超过单笔上限"""
+        if payoff_ratio <= 0:
+            return 0.0
+        f = win_rate - (1 - win_rate) / payoff_ratio
+        f = max(0.0, f)
+        return min(f * kelly_fraction, max_single_pct)
+
+    def register_daily_pnl(self, pnl_pct: float):
+        self._day_pnl = pnl_pct
+
+    def daily_circuit_triggered(self) -> bool:
+        return self.daily_loss_circuit > 0 and self._day_pnl <= -self.daily_loss_circuit

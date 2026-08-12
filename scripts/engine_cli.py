@@ -10,9 +10,11 @@
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
+import pandas as pd
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,6 +24,7 @@ from engine.backtest import BacktestEngine  # noqa: E402
 from engine.data_service import DataService  # noqa: E402
 from engine.database import Database  # noqa: E402
 from engine.exits import ExitManager  # noqa: E402
+from engine.optimizer import optimize  # noqa: E402
 from engine.executor import PaperExecutor  # noqa: E402
 from engine.risk import RiskEngine  # noqa: E402
 from engine.strategy import get_strategy  # noqa: E402
@@ -39,6 +42,10 @@ def main():
     p.add_argument("--tp", type=float, default=0, help="止盈百分比覆盖")
     p.add_argument("--trail", type=float, default=0, help="移动止损百分比覆盖")
     p.add_argument("--hold", type=int, default=0, help="时间止损天数覆盖")
+    p.add_argument("--atr-mult", type=float, default=0, help="ATR 止损倍数覆盖（如 2.0）")
+    p.add_argument("--breakeven", type=float, default=0, help="保本移动阈值覆盖（如 0.06）")
+    p.add_argument("--optimize", action="store_true", help="参数寻优模式（配 --grid）")
+    p.add_argument("--grid", default="", help='参数网格 JSON，如 {"rebalance":[14,21,28]}')
     args = p.parse_args()
 
     cfg = yaml.safe_load((ROOT / "config" / "strategies.yaml").read_text(encoding="utf-8"))
@@ -52,6 +59,11 @@ def main():
                  ("trailing", args.trail), ("max_hold_days", args.hold)):
         if v:
             rules[k] = v
+    rules = {k: v for k, v in rules.items() if v}  # 0 值 = 不启用该规则
+    if args.atr_mult:
+        rules["atr_multiplier"] = args.atr_mult
+    if args.breakeven:
+        rules["breakeven_at_profit_pct"] = args.breakeven
     exit_mgr = ExitManager(rules)
 
     if args.mode == "paper":
@@ -75,15 +87,35 @@ def main():
     if hasattr(strat, "_close"):
         close = strat._close
         start = "2022-09-02"
+        atr = build_atr(ds, strat.params["assets"] + [strat.params.get("safe", "")])
     else:
         close = ds.cb_close()
         start = None
+        atr = None
     if args.tail:
         close = close.tail(args.tail)
+        if atr is not None:
+            atr = atr.tail(args.tail)
+
+    if args.optimize:
+        if not args.grid:
+            print("--optimize 需要 --grid 参数，如 --grid '{\"rebalance\":[14,21,28]}'")
+            return
+        grid = json.loads(args.grid)
+        res = optimize(args.strategy, grid, close, ds, risk=RiskEngine(max_single_weight=1.0, max_positions=30),
+                       exits=exit_mgr)
+        best = res[res["PASS"]].head(1)
+        if len(best):
+            print("\n最佳通过参数：")
+            print(best.to_string(index=False))
+        else:
+            print("\n无参数组合通过反过拟合门槛（可放宽 --grid 或调整阈值）")
+        return
+
     db = Database(ROOT / "data" / "engine.sqlite")
     ex = PaperExecutor(db=db, strategy_name=args.strategy)
     risk = RiskEngine(max_single_weight=1.0, max_positions=30)
-    engine = BacktestEngine(strat, ex, risk, exit_manager=exit_mgr)
+    engine = BacktestEngine(strat, ex, risk, exit_manager=exit_mgr, atr_frame=atr)
     nav = engine.run(close, start=start)
     m = metrics(nav, 0.0, n_trials=6)
     ref = REF.get(args.strategy)
@@ -92,6 +124,21 @@ def main():
           f"HAC t {m['hac_t']} | 回撤 {m['max_drawdown']:.2%} {diff}")
     print(f"交易流水：{len(db.trades(args.strategy))} 笔 → data/engine.sqlite")
     print(f"退出规则：{exit_mgr.describe()} | 触发退出 {engine.exit_trades} 次")
+
+
+def build_atr(ds, symbols):
+    """14 日 ATR（逐标的真实波幅均值），供 ATR 止损用"""
+    import numpy as np
+    o = ds.ohlcv("美股", symbols)
+    high, low, close = o["high"], o["low"], o["close"]
+    pc = close.shift(1)
+    tr = pd.DataFrame(index=close.index, columns=close.columns)
+    for s in close.columns:
+        tr[s] = np.maximum.reduce([
+            (high[s] - low[s]).values,
+            (high[s] - pc[s]).abs().values,
+            (low[s] - pc[s]).abs().values])
+    return tr.rolling(14).mean()
 
 
 if __name__ == "__main__":
