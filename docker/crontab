@@ -1,0 +1,12 @@
+# 星辰投研团 · 容器内定时任务（时区 Asia/Shanghai）
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# 工作日 16:35：全链路（数据→信号→三模拟盘→IV→期货→风控→一致性→摘要→推送）
+35 16 * * 1-5 root cd /app && python3 scripts/run_all.py all >> /var/log/xingchen.log 2>&1
+
+# 周日 20:00：周报 + 推送
+0 20 * * 0 root cd /app && python3 scripts/report_weekly.py >> /var/log/xingchen.log 2>&1 && python3 scripts/push_digest.py >> /var/log/xingchen.log 2>&1
+
+# 月末 17:30：三账户月报 + 推送
+30 17 28-31 * * root cd /app && python3 scripts/report_monthly.py >> /var/log/xingchen.log 2>&1 && python3 scripts/push_digest.py >> /var/log/xingchen.log 2>&1

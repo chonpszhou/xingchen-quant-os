@@ -1,0 +1,22 @@
+name: xingchen-quant
+
+services:
+  xingchen:
+    build: .
+    image: xingchen-quant:latest
+    container_name: xingchen-quant
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./data:/app/data          # 行情/财务/模拟盘状态（持久化）
+      - ./docs:/app/docs          # 报告与摘要（宿主机可直接查看）
+      - ./config:/app/config      # 配置可改（broker/push/tasks 等）
+      - ./.env:/app/.env:ro       # 推送/券商凭证（可空）
+      - ./logs:/var/log           # 运行日志
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}

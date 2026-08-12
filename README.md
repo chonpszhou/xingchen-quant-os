@@ -128,6 +128,25 @@
 
    参考 `config/tasks.yaml` 中的 cron 表达式与落地方式（系统 crontab / APScheduler / Codex 定时提醒）。
 
+## Docker 部署（可选，替代 launchd 自动运行）
+
+容器内含完整依赖（python:3.12-slim，pandas 3.0 已验证与本机 2.3.3 结果一致），
+内置 cron 定时任务（工作日 16:35 全链路 / 周日 20:00 周报 / 月末 17:30 月报），
+数据与报告通过卷持久化到宿主机。
+
+```bash
+docker compose build
+docker compose up -d
+docker compose logs -f xingchen      # 查看运行日志
+docker compose exec xingchen python3 scripts/run_task.py daily_close_digest   # 手动触发
+```
+
+首次运行建议先更新数据：
+`docker compose exec xingchen python3 scripts/datahub_cli.py update --markets A股 港股 美股 虚拟货币`
+
+> 注意：Docker 与 launchd 二选一，勿同时启用（会重复执行每日任务）。
+> 若改用 Docker，先卸载 launchd：`python3 scripts/install_automation.py uninstall`
+
 ## 数据层（DataHub）
 
 统一收口 akshare / yfinance / 新浪 / 东方财富 / OKX / Gate，把自选股清单变成可落库的历史数据：

@@ -32,12 +32,21 @@ def load_env():
     env = {}
     p = ROOT / ".env"
     if p.exists():
-        for line in p.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            env[k.strip()] = v.strip().strip('"').strip("'")
+        if p.is_file():
+            for line in p.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip().strip('"').strip("'")
+    # 环境变量注入兜底（Docker env_file 场景）
+    for k in ("SMTP_USER", "SMTP_PASS", "SMTP_FROM", "MAIL_TO", "FEISHU_WEBHOOK",
+              "DINGTALK_WEBHOOK", "WECOM_WEBHOOK", "SERVERCHAN_KEY", "PUSHPLUS_TOKEN"):
+        if k in env:
+            continue
+        v = os.environ.get(k, "")
+        if v:
+            env[k] = v
     return env
 
 
