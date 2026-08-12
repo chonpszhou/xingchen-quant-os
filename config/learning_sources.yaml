@@ -1,0 +1,23 @@
+# 每日量化学习数据源（RSS + GitHub 搜索）
+version: "1.0"
+
+rss:
+  - {name: QuantStart, url: "https://www.quantstart.com/feed/"}
+  - {name: Quantocracy, url: "https://quantocracy.com/feed/"}
+  - {name: Alpha Architect, url: "https://alphaarchitect.com/feed/"}
+  - {name: Ernie Chan, url: "https://epchan.blogspot.com/feeds/posts/default"}
+  - {name: Quantpedia, url: "https://quantpedia.com/feed/"}
+  - {name: AQR, url: "https://www.aqr.com/insights/research/rss"}
+  - {name: Robot Wealth, url: "https://robotwealth.com/feed/"}
+  - {name: Quantocracy Mirror, url: "https://quantocracy.com/feed/"}
+
+github_queries:
+  - "quantitative trading"
+  - "quant strategy factor"
+  - "trading bot backtest"
+  - "alpha research factor model"
+
+keywords:
+  - 动量, momentum, 价值, value, 因子, factor, 回测, backtest, alpha, 期权, options,
+    波动率, volatility, 风险, risk, 量化, A股, 港股, 加密货币, crypto, 双低, 可转债,
+    convertible, 止盈, 止损, 组合, portfolio, 机器学习, machine learning

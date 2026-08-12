@@ -277,6 +277,24 @@ def market_view():
     return f"<table><tr><th>标的</th><th>最新价</th><th>日涨跌</th></tr>{body}</table>"
 
 
+def learning_view():
+    """每日量化学习：最新笔记 + 最近条目"""
+    notes = sorted((ROOT / "docs").glob("学习笔记_*.md"), reverse=True)
+    items_html = ""
+    log = ROOT / "data" / "learning_log.parquet"
+    if log.exists():
+        df = pd.read_parquet(log)
+        if not df.empty:
+            df = df.drop_duplicates("link").tail(8).iloc[::-1]
+            items_html = "".join(
+                f"<tr><td>{r['source']}</td><td><a href='{r['link']}' target='_blank' style='color:#60a5fa'>{r['title'][:60]}</a></td>"
+                f"<td>{r['date']}</td></tr>" for _, r in df.iterrows())
+    note_link = f"<a class='rep' href='/file/{notes[0].name}'>最新学习笔记（{notes[0].stem.replace('学习笔记_','')}）</a>" if notes else ""
+    return (f"<div>{note_link}</div>"
+            f"<h2>最近条目（累计 {len(df) if log.exists() else 0}）</h2>"
+            f"<table><tr><th>来源</th><th>标题</th><th>日期</th></tr>{items_html or '<tr><td class=\"muted\">暂无</td></tr>'}</table>")
+
+
 def render():
     accounts = nav_data()
     cards = ""
@@ -393,6 +411,7 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 <button class="tab" data-t="trades">交易</button>
 <button class="tab" data-t="ops">操作台</button>
 <button class="tab" data-t="data">行情/数据</button>
+<button class="tab" data-t="learn">学习</button>
 <button class="tab" data-t="reports">报告</button></div>
 <section id="overview" class="active">
 <div class="hero"><h2 style="margin-top:0">组合净值（三策略等权）</h2>{hero}</div>
@@ -417,6 +436,7 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 <table><tr><th>市场</th><th>标的数</th><th>状态</th></tr>{fresh}</table>
 <h2>市场摘要</h2><div class="stat"><div>期权 IV<b>{iv_line or '—'}</b></div></div></section>
 <section id="reports"><h2>报告（最近 12 份）</h2><div>{reports or '<span class="muted">暂无</span>'}</div></section>
+<section id="learn"><h2>每日量化学习（GitHub + 精选博客）</h2>{learning_view()}</section>
 <div style="padding:0 24px"><div class="updated">自动生成 · 仅供学习研究参考，不构成投资建议 · 操作台仅限本机访问 · {pd.Timestamp.now():%H:%M:%S}</div></div>
 <script>
 const keys = {json.dumps(list(ACTIONS), ensure_ascii=False)};

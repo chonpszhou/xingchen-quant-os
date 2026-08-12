@@ -57,6 +57,7 @@ def main():
     if args.action == "install":
         jobs = [
             ("com.xingchen.quant.daily", 16, 35, list(range(1, 6)), None, ("run_all.py", "all")),
+            ("com.xingchen.quant.learn", 8, 0, list(range(1, 6)), None, ("learn_daily.py",)),
             ("com.xingchen.quant.weekly", 20, 0, [0], None, ("report_weekly.py",)),
             ("com.xingchen.quant.monthly", 17, 30, None, [28, 29, 30, 31], ("run_all.py", "monthly")),
         ]
@@ -65,7 +66,8 @@ def main():
             pfile = LAUNCH_AGENTS / f"{label}.plist"
             pfile.write_bytes(plistlib.dumps(job))
             subprocess.run(["launchctl", "load", str(pfile)], check=True)
-            when = "周日 20:00" if label.endswith("weekly") else ("工作日 16:35" if md is None else "月末 17:30")
+            when = "工作日 08:00" if label.endswith("learn") else (
+                "周日 20:00" if label.endswith("weekly") else ("工作日 16:35" if md is None else "月末 17:30"))
             print(f"✓ 已安装 {label}（{when}）→ {pfile}")
         print("\n安装完成。日志目录：~/Library/Logs/星辰投研团/")
         print("说明：launchd 任务在用户登录后生效；手动立即运行：python3 scripts/run_all.py all")
