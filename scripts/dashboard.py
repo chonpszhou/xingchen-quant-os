@@ -502,9 +502,10 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 const keys = {json.dumps(list(ACTIONS), ensure_ascii=False)};
 let poll=null, timer=null, autoRefresh=false;
 function switchTab(id, el){{
-document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===el));
-document.querySelectorAll('section').forEach(s=>s.classList.toggle('active',s.id===id));}}
-document.getElementById('tabs').addEventListener('click',e=>{{const t=e.target.dataset.t;if(!t)return;switchTab(t,e.target);}});
+document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
+el.classList.add('active');
+const sec=document.getElementById(id);if(sec)sec.classList.add('active');}}
 function toggleRefresh(){{autoRefresh=!autoRefresh;
 if(autoRefresh){{timer=setInterval(()=>{{fetch('/api/log').then(r=>r.json()).then(j=>{{if(!j.running)location.reload();}});}},60000);
 document.querySelector('.refresh').textContent='自动刷新开';}}
