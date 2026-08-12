@@ -110,7 +110,7 @@ def main():
     im_on = [k for k, c in push_cfg.get("im", {}).items()
              if c.get("enabled") and env.get({"feishu": "FEISHU_WEBHOOK", "dingtalk": "DINGTALK_WEBHOOK",
                                               "wecom": "WECOM_WEBHOOK", "serverchan": "SERVERCHAN_KEY",
-                                              "pushplus": "PUSHPLUS_TOKEN"}[k])]
+                                              "pushplus": "PUSHPLUS_TOKEN", "wechat": "wechat"}[k])]
     lines += ["## 推送通道", "",
               f"- 邮件：{'✓ 启用' if email_on else '未启用（填 .env 后开启）'}",
               f"- IM：{('、'.join(im_on) + ' 已启用') if im_on else '未启用（填 .env 后开启）'}",

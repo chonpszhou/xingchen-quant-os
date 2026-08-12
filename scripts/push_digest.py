@@ -107,9 +107,9 @@ def main():
         for kind, c in channels.get("im", {}).items():
             key = {"feishu": "FEISHU_WEBHOOK", "dingtalk": "DINGTALK_WEBHOOK",
                    "wecom": "WECOM_WEBHOOK", "serverchan": "SERVERCHAN_KEY",
-                   "pushplus": "PUSHPLUS_TOKEN"}[kind]
+                   "pushplus": "PUSHPLUS_TOKEN", "wechat": "wechat"}[kind]
             print(f"{kind}: {'启用' if c.get('enabled') else '未启用'} "
-                  f"({'已配置' if env.get(key) else '未配置'})")
+                  f"({'本地桥接' if kind == 'wechat' else ('已配置' if env.get(key) else '未配置')})")
         return 0
 
     digest = latest_digest()
@@ -139,6 +139,15 @@ def main():
             r = requests.post(url, data=payload, timeout=15)
             print(f"{'✓' if r.ok else '✗'} {kind} 已推送（{r.status_code}）")
             sent += r.ok
+            continue
+        if kind == "wechat":
+            if not c.get("enabled"):
+                continue
+            r = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "push_wechat.py"), "--text", body[:1500]],
+                capture_output=True, text=True, timeout=90)
+            print(("✓ " if r.returncode == 0 else "✗ ") + (r.stdout or r.stderr).strip()[:120])
+            sent += r.returncode == 0
             continue
         ok, msg = send_webhook(kind, c, env, body)
         print(("✓ " if ok else "✗ ") + msg)

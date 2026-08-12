@@ -30,6 +30,9 @@ push:
     wecom:
       enabled: false
       webhook: "${WECOM_WEBHOOK}"
+    wechat:
+      enabled: true
+      note: "本地微信桥接（clawbot）：要求微信 Mac 客户端运行且聊天窗口打开；经 scripts/push_wechat.py 发送到当前窗口"
     serverchan:
       enabled: false
       send_key: "${SERVERCHAN_KEY}"
