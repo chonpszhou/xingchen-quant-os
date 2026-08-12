@@ -3,6 +3,7 @@
 """星辰投研团 · 本地网页看板（零第三方依赖；标签页 + 双线净值图 + 操作台）"""
 
 import argparse
+import collections
 import json
 import subprocess
 import sys
@@ -31,27 +32,59 @@ ACTIONS = {
     "期货更新": ["run_all.py", "futures"],
 }
 
-_lock = threading.Lock()
+_queue = collections.deque()
+_current = {"name": None, "proc": None}
 _running = {"task": None, "started": None, "log": []}
 
 
-def run_task(name, args):
+def _worker():
+    while True:
+        if not _queue:
+            _current["name"] = None
+            _current["proc"] = None
+            return
+        name, args = _queue.popleft()
+        _run(name, args)
+
+
+def _run(name, args):
     cmd = [sys.executable, str(ROOT / "scripts" / args[0]), *args[1:]]
     _running.update({"task": name, "started": time.strftime("%H:%M:%S"), "log": []})
+    _current["name"] = name
     try:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                             text=True, cwd=ROOT)
-        for line in p.stdout:
+        _current["proc"] = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                            text=True, cwd=ROOT)
+        for line in _current["proc"].stdout:
             _running["log"].append(line.rstrip())
             if len(_running["log"]) > 400:
                 _running["log"] = _running["log"][-400:]
-        p.wait()
-        _running["log"].append(f"[完成] 退出码 {p.returncode}")
+        _current["proc"].wait()
+        _running["log"].append(f"[完成] 退出码 {_current['proc'].returncode}")
     except Exception as e:  # noqa: BLE001
-        _running["log"].append(f"[错误] {e}")
+        _running["log"].append(f"[错误/已取消] {e}")
     finally:
+        _current["proc"] = None
         _running["task"] = None
         _running["started"] = None
+
+
+def enqueue(name, args):
+    if len(_queue) >= 3 and _current["name"]:
+        return None
+    started_now = _current["name"] is None and not _queue
+    _queue.append((name, args))
+    if started_now:
+        threading.Thread(target=_worker, daemon=True).start()
+    return "running" if started_now else "queued"
+
+
+def cancel():
+    if _current["proc"]:
+        try:
+            _current["proc"].terminate()
+        except Exception:
+            pass
+    _queue.clear()
 
 
 def nav_data():
@@ -452,8 +485,12 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 <div>{tear_tabs}</div><div style="margin-top:12px">{tear_panels}</div></section>
 <section id="trades"><h2>纸面持仓</h2>{paper_positions_view()}
 <h2>交易记录（引擎 SQLite，含止盈止损自动退出）</h2>{trades_view()}</section>
-<section id="ops"><h2>操作台</h2><div>{btns}</div>
-<p id="runstate" class="muted"></p><pre id="output">就绪。点击按钮触发任务，输出实时显示。</pre></section>
+<section id="ops"><h2>操作台</h2>
+<div class="stat"><div>并发策略<b>单任务串行 + 排队</b></div><div>排队上限<b>3</b></div></div>
+<div>{btns}</div>
+<p id="runstate" class="muted"></p>
+<button class="btn" style="background:#b91c1c" onclick="cancelTask()">取消当前任务</button>
+<pre id="output">就绪。点击按钮触发任务，输出实时显示；运行中可继续点击其他任务（自动排队）。</pre></section>
 <section id="data"><h2>自选行情（本地两日涨跌）</h2>{market_view()}
 <h2>数据新鲜度</h2>
 <table><tr><th>市场</th><th>标的数</th><th>状态</th></tr>{fresh}</table>
@@ -471,16 +508,21 @@ function toggleRefresh(){{autoRefresh=!autoRefresh;
 if(autoRefresh){{timer=setInterval(()=>{{fetch('/api/log').then(r=>r.json()).then(j=>{{if(!j.running)location.reload();}});}},60000);
 document.querySelector('.refresh').textContent='自动刷新开';}}
 else{{clearInterval(timer);document.querySelector('.refresh').textContent='自动刷新';}}}}
-function runTask(i){{document.querySelectorAll('.btn').forEach(b=>b.disabled=true);
-fetch('/api/run?key='+i).then(r=>r.json()).then(j=>{{
-document.getElementById('runstate').textContent='正在运行: '+keys[j.key]+'（'+j.started+'）';
-document.getElementById('pill').textContent='运行中';document.getElementById('pill').className='pill warn';
+function runTask(i){{fetch('/api/run?key='+i).then(r=>r.json()).then(j=>{{
+if(j.status==='running'){{document.getElementById('runstate').textContent='正在运行: '+keys[j.key];
+document.getElementById('pill').textContent='运行中';document.getElementById('pill').className='pill warn';}}
+else if(j.status==='queued'){{document.getElementById('runstate').textContent='已排队: '+keys[j.key]+'（队列: '+j.queue.join(', ')+'）';}}
+else{{document.getElementById('runstate').textContent='操作失败：'+j.error;return;}}
 poll=setInterval(pollLog,1500);}});}}
+function cancelTask(){{fetch('/api/cancel').then(()=>{{
+document.getElementById('runstate').textContent='已取消当前任务并清空队列';
+document.getElementById('pill').textContent='自运转';document.getElementById('pill').className='pill';}});}}
 function pollLog(){{fetch('/api/log').then(r=>r.json()).then(j=>{{
 const o=document.getElementById('output');o.textContent=j.log.join('\\n')||'（无输出）';o.scrollTop=o.scrollHeight;
 if(!j.running){{clearInterval(poll);document.getElementById('runstate').textContent='完成：'+j.task;
 document.getElementById('pill').textContent='自运转';document.getElementById('pill').className='pill';
-document.querySelectorAll('.btn').forEach(b=>b.disabled=false);}}}});}}
+if(j.queue.length){{document.getElementById('runstate').textContent='当前空闲，队列待执行: '+j.queue.join(', ');poll=setInterval(pollLog,1500);}}
+else{{document.getElementById('runstate').textContent='完成：'+j.task;}}}});}}
 </script></body></html>"""
 
 
@@ -491,16 +533,21 @@ class Handler(BaseHTTPRequestHandler):
             q = parse_qs(urlparse(self.path).query)
             key = int(q.get("key", ["0"])[0])
             name = list(ACTIONS)[key]
-            if not _lock.acquire(blocking=False):
-                self._json({"error": "已有任务在运行"}, 409)
+            status = enqueue(name, ACTIONS[name])
+            if status is None:
+                self._json({"error": "队列已满（最多 3 个排队）"}, 429)
                 return
-            threading.Thread(target=lambda: (run_task(name, ACTIONS[name]), _lock.release()),
-                             daemon=True).start()
-            self._json({"started": True, "key": key, "task": name, "started": _running["started"]})
+            self._json({"status": status, "key": key, "task": name,
+                        "queue": [n for n, _ in _queue]})
             return
         if self.path.startswith("/api/log"):
             self._json({"running": _running["task"] is not None,
-                        "task": _running["task"], "log": _running["log"]})
+                        "task": _running["task"], "log": _running["log"],
+                        "queue": [n for n, _ in _queue]})
+            return
+        if self.path.startswith("/api/cancel"):
+            cancel()
+            self._json({"cancelled": True})
             return
         if self.path.startswith("/file/"):
             name = self.path.split("/file/", 1)[1]
