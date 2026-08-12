@@ -1,226 +1,114 @@
-# 星辰投研团
+<div align="center">
 
-跨 A股 / 港股 / 美股 / 虚拟货币 / 期权 的多市场投研监控项目骨架。
+# 星辰投研团 · Xingchen Quant OS
 
-> GitHub: https://github.com/chonpszhou/xingchen-quant-os · 详见 [docs/系统总览.md](docs/系统总览.md) 与 [docs/用户操作手册.md](docs/用户操作手册.md)
+**面向普通金融小白的量化交易操作系统**
 
-## 目录结构
+覆盖 A股 / 港股 / 美股 / 加密货币 · 支持现货 / 期货 / ETF / 期权 / 可转债
 
-```
-星辰投研团/
-├── datahub/                  # 统一数据访问层（A股/港股/美股/加密，多源自动降级）
-│   ├── core.py               # DataHub：行情/历史/财务/期权统一接口
-│   ├── store.py              # SQLite 元数据 + parquet 日线落库（增量更新）
-│   └── calendar.py           # 多市场交易日历
-├── factors/                  # 因子流水线 v0.1（动量/波动率/反转/量能）
-│   ├── definitions.py        # 因子定义（无未来函数）
-│   ├── pipeline.py           # 面板构建 + 日度IC + 分位组合
-│   ├── neutralization.py     # 行业(BaoStock)去均值 + log(成交额代理) 中性化
-│   ├── evaluate.py           # alpha-evaluate 方法论：标准化/IC/分位多空/单调性/评级
-│   └── backtest.py           # 组合回测 + walk-forward + HAC t + DSR
-├── config/
-│   ├── sources.yaml        # 数据源配置（行情/财务/期权，含主备通道）
-│   ├── push.yaml           # 推送通道配置（邮件 + IM 机器人）
-│   ├── watchlist.json      # 默认自选股清单（结构化，可直接导入）
-│   ├── watchlist.csv       # 同上，CSV 版（Excel 可直接打开）
-│   └── tasks.yaml          # 自动化定时分析任务配置建议
-├── scripts/
-│   ├── check_connections.py # 数据源与推送通道连通性检查
-│   ├── datahub_cli.py       # DataHub 命令行（update/quote/status/sample）
-│   ├── backfill_a_market.py # A股指数成分/全市场批量回填（并发+断点续传）
-│   ├── fetch_a_meta.py      # A股市值/行业元数据（东财单股接口）
-│   ├── fetch_a_industry.py  # A股行业映射（BaoStock，中性化用）
-│   ├── factor_cli.py        # 因子流水线命令行
-│   ├── research_run.py      # 研究方向编排：中性化评估 + walk-forward 回测
-│   ├── backfill_us_hk.py    # 美股/港股扩池回填（单线程规避 V8 崩溃）
-│   ├── research_market_pool.py  # 跨市场扩池验证（美股/港股）
-│   ├── research_master_signals.py # 大佬信号验证（假突破/接针）
-│   ├── research_trend_following.py # CTA 趋势跟踪验证
-│   ├── fetch_a_fundamentals.py  # A股季度基本面抓取（BaoStock）
-│   ├── research_fundamentals.py # 基本面因子验证（价值/质量）
-│   ├── build_pit_universe.py    # 点对时池构建（沪深300+中证500 月度成分）
-│   ├── backfill_a_pit.py        # 点对时池行情回填（腾讯直连提速）
-│   ├── fetch_a_pit_industry.py  # 点对时池行业映射
-│   ├── research_pit_validation.py     # 点对时池价格因子验证
-│   ├── research_pit_fundamentals.py   # 点对时池基本面验证
-│   ├── options_iv_snapshot.py   # 期权 IV 监控快照（CBOE + 期权链）
-│   ├── fetch_cb_panel.py        # 可转债历史面板抓取（约 1050 只）
-│   ├── research_cb_double_low.py # 可转债双低策略回测（首个实盘候选）
-│   ├── run_cb_double_low.py     # 双低每日监控（排名+预警）
-│   ├── paper_trade_cb.py        # 双低模拟盘（20日调仓+净值跟踪）
-│   ├── paper_trade_momentum.py  # 双动量模拟盘（21日调仓+SPY基准）
-│   ├── paper_trade_rp.py        # 风险平价模拟盘（逆波动率配置）
-│   ├── validate_paper_engines.py # 模拟盘引擎一致性校验（重放vs回测）
-│   ├── test_paper_forward.py     # 模拟盘前向状态机测试（25日回放，隔离运行）
-│   ├── portfolio_view.py        # 组合模拟盘视图（三策略加权画像）
-│   ├── report_weekly.py         # 周报生成器
-│   ├── install_automation.py    # launchd 自动运行安装器
-│   ├── setup_wizard.py          # 小白配置向导（凭证/券商/自动化一键）
-│   ├── risk_monitor.py          # 风控监控器（回撤/超额/连续跑输）
-│   ├── monitor_backtest_consistency.py # 回测-模拟一致性监控（实盘门槛②）
-│   ├── research_hk_dividend.py  # 港股股息率策略验证（含分红总回报）
-│   ├── research_crypto_trend.py # 加密周频趋势验证
-│   ├── run_all.py               # 一键运行入口（更新/双低/IV/摘要）
-│   ├── push_digest.py           # 摘要推送（邮件+IM，凭证就绪后启用）
-│   ├── report_monthly.py        # 模拟盘月度报告
-│   ├── fetch_futures.py         # 期货数据层（商品主力+加密永续费率）
-│   ├── system_status.py         # 系统健康看板（一页总览）
-│   ├── research_dual_momentum.py # 双动量ETF轮动验证（观察级最强候选）
-│   ├── research_risk_parity.py   # 风险平价配置验证（稳定型底仓）
-│   ├── broker.py                # 交易执行层抽象（纸面→实盘即插即用）
-│   └── export_research_reports.py # 研究报告 → Obsidian
-├── docs/
-│   ├── 连接检查报告.md       # 带状态标识的连接检查清单（运行脚本自动生成）
-│   ├── 连接检查结果.json
-│   ├── 量化交易GitHub顶级项目学习笔记.md  # GitHub Top50 量化项目研读
-│   ├── 量化交易支撑体系规划.md            # 量化交易软性/硬性支撑体系规划
-│   ├── 量化交易GitHub知识库.md            # 全领域知识库（12 大分类，1523 候选）
-│   ├── 交易大佬学习笔记.md               # YouTube(投机实验室) + X 大咖学习笔记
-│   ├── obsidian_export/交易大佬学习/      # Obsidian 分类导出（7 篇，含总览 MOC）
-│   ├── obsidian_export/研究报告/          # 7 篇研究报告 + 总览看板
-│   ├── 跨市场扩池验证报告.md              # 美股61/港股66 低波·动量复核
-│   ├── CTA趋势跟踪验证报告.md             # 14 标的跨资产趋势跟踪
-│   ├── 基本面因子验证报告.md              # A股 300 只 价值/质量
-│   ├── 点对时池验证报告.md                # 1111 只动态池 价格因子复核
-│   ├── 点对时池基本面验证报告.md          # 动态池 价值/质量复核
-│   ├── 期权IV监控快照.md                  # VIX/VXN/VXD + 个股 IV 分位
-│   ├── 可转债双低策略回测报告.md           # 双低策略（HAC t 3.08）
-│   ├── 港股股息率策略验证报告.md           # 股息率因子（ICIR 0.31）
-│   ├── 加密趋势策略验证报告.md             # 加密趋势（观察级）
-│   ├── 双动量ETF轮动验证报告.md            # ETF双动量（观察级最强候选）
-│   ├── 风险平价配置验证报告.md             # 逆波动率底仓（回撤 -5.8%）
-│   ├── 系统总览.md                         # 系统架构/策略/使用/风险 一页通
-│   ├── 组合模拟盘视图.md                   # 三策略加权组合画像
-│   ├── 用户操作手册.md                     # 面向小白的完整操作指南
-│   ├── 投研摘要_日期.md                    # 每日一键生成的投研摘要
-│   ├── 模拟盘月报_日期.md                  # 月度模拟盘统计与纪律检查
-│   └── github_quant_corpus.json           # 量化 GitHub 全领域语料（脚本自动生成）
-├── requirements.txt            # Python 依赖清单
-├── .env.example                # 凭证模板（复制为 .env 填写）
-├── config/broker.yaml          # 实盘券商配置（当前 paper，实盘预留）
-└── README.md
+自动数据 → 自动研究 → 自动模拟盘 → 自动风控 → 自动推送
+
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Docker-lightgrey)]()
+[![Dashboard](https://img.shields.io/badge/Dashboard-ZeroJS%20%E2%9C%93-brightgreen)]()
+[![Backtest](https://img.shields.io/badge/Backtest-WalkForward%20%E2%9C%93-blueviolet)]()
+
+</div>
+
+---
+
+## ✨ 亮点
+
+- **诚实的研究纪律**：16+ 份研究报告，全部经过统一门控（事件研究/IC → walk-forward 样本外含成本），不凑数、不美化
+- **三策略并行模拟盘**：可转债双低（实盘候选）、双动量 ETF、风险平价底仓——收益/趋势/稳定三档画像，各自对照基准
+- **v4 平台引擎**：事件驱动核心（对标 vnpy/freqtrade）、策略注册制、止盈止损自动退出、SQLite 交易流水
+- **全自动运行**：launchd / Docker 内置定时（每日全链路、每小时学习、周报、月报），推送直达微信
+- **零 JS 网页看板**：任何浏览器可用；Obsidian 知识库全同步；GitHub 版本管理可复现
+
+## 🏗 架构
+
+```mermaid
+flowchart TB
+    subgraph 控制面
+      WEB[网页看板 · 零JS] --> API[/API/]
+      CRON[定时调度<br/>launchd / Docker cron] --> API
+      PUSH[推送 · 微信 PushPlus]
+    end
+    subgraph 平台层
+      ENG[MainEngine 事件总线]
+      DS[DataService<br/>行情/财务/期权/可转债]
+      STR[Strategy 注册表<br/>双低/双动量/风险平价]
+      RISK[RiskEngine<br/>回撤/持仓/止盈止损]
+      EXE[Executor<br/>Paper → QMT/富途/OKX]
+      BT[BacktestEngine<br/>同一策略代码回测]
+    end
+    API --> ENG
+    ENG --> STR --> RISK --> EXE
+    DS --> STR
+    ENG --> BT
+    CRON --> PUSH
+    WEB --> PUSH
 ```
 
-## 快速开始
+## 📦 功能总览
 
-1. **检查环境与连通性**
+| 模块 | 说明 |
+|------|------|
+| 数据层 | A股 1119 / 港股 66 / 美股 65 / 加密 16 / 期货 10 / 可转债 1000+ / 港股分红，多源自动降级 |
+| 研究层 | 因子评估 / 事件研究 / walk-forward / DSR 门控，16+ 份诚实报告 |
+| 策略层 | 可转债双低（信用过滤）、双动量 ETF、逆波动率风险平价——三模拟盘运行中 |
+| 平台引擎 | 事件驱动核心、策略注册制、止盈止损自动退出、SQLite 交易/净值流水 |
+| 自动化 | launchd/Docker 定时：全链路 / 每小时学习 / 周报 / 月报 / 推送 |
+| 看板 | 零 JS 网页看板（概览/策略/风控/体检/交易/操作台/行情/学习/报告） |
+| 知识库 | Obsidian 同步（研究看板/用户手册/学习日志/系统状态） |
+| 学习机制 | 每日 GitHub+RSS 深学习 + 每小时成果卡片（核心观点/可测假设） |
 
-   ```bash
-   pip install akshare yfinance ccxt pandas requests
-   python3 scripts/check_connections.py
-   ```
+## 🚀 快速开始
 
-   运行后自动生成 `docs/连接检查报告.md`，每项带状态标识（✅正常 / ❌异常 / ⚠️未配置）。
+### 方式一：本机（macOS）
 
-2. **配置凭证**
+```bash
+git clone git@github.com:chonpszhou/xingchen-quant-os.git
+cd xingchen-quant-os
+pip install -r requirements.txt
+python3 scripts/setup_wizard.py --auto     # 一键：装自动化 + 复检
+python3 scripts/run_all.py all             # 全链路：数据→信号→模拟盘→摘要
+python3 scripts/acceptance_test.py         # 一键验收（10 项）
+python3 scripts/dashboard.py               # 看板 → http://127.0.0.1:8080
+```
 
-   ```bash
-   cp .env.example .env
-   # 编辑 .env：邮件 SMTP、飞书/钉钉/企业微信机器人等
-   python3 scripts/check_connections.py   # 复检推送通道
-   ```
-
-3. **导入自选股**
-
-   `config/watchlist.json` 可直接读取；`watchlist.csv` 为 UTF-8 编码，Excel 双击打开。代码格式说明见 JSON 内 `code_notes`。
-
-4. **部署定时任务**
-
-   参考 `config/tasks.yaml` 中的 cron 表达式与落地方式（系统 crontab / APScheduler / Codex 定时提醒）。
-
-## Docker 部署（可选，替代 launchd 自动运行）
-
-容器内含完整依赖（python:3.12-slim，pandas 3.0 已验证与本机 2.3.3 结果一致），
-内置 cron 定时任务（工作日 16:35 全链路 / 周日 20:00 周报 / 月末 17:30 月报），
-数据与报告通过卷持久化到宿主机。
+### 方式二：Docker
 
 ```bash
 docker compose build
-docker compose up -d
-docker compose logs -f xingchen      # 查看运行日志
-docker compose exec xingchen python3 scripts/run_task.py daily_close_digest   # 手动触发
+docker compose up -d                       # 内置 cron：日/小时/周/月全自动
+# 看板 http://localhost:8080（仅本机可访问）
 ```
 
-首次运行建议先更新数据：
-`docker compose exec xingchen python3 scripts/datahub_cli.py update --markets A股 港股 美股 虚拟货币`
+## 🖥 网页看板
 
-**网页看板**（本地或 Docker 均可）：
+`http://localhost:8080` —— 三模拟盘净值与基准双线图、风控状态、策略体检（回撤/滚动夏普/月度热力图）、交易流水、操作台（任务排队/取消）、自选行情、每日学习。
+
+## 📚 文档
+
+| 文档 | 说明 |
+|------|------|
+| [交付清单](docs/交付清单.md) | 目标→证据逐项核查（27 项） |
+| [用户操作手册](docs/用户操作手册.md) | 小白版：安装/日常/纪律/30天日历 |
+| [平台架构设计](docs/平台架构设计.md) | v4 引擎设计（对标 vnpy/freqtrade） |
+| [读懂模拟盘报告](docs/读懂模拟盘报告.md) | 月报/风控指标人话翻译 |
+| [交易执行与风控退出](docs/交易执行与风控退出.md) | 下单链路与止盈止损说明 |
+| [券商开户与接入指引](docs/券商开户与接入指引.md) | QMT/富途/OKX 实盘接入步骤 |
+| [系统总览](docs/系统总览.md) | 架构/策略/风险一页通 |
+
+## 🧪 测试与验收
 
 ```bash
-python3 scripts/dashboard.py            # 本机访问 http://127.0.0.1:8080
-docker compose up -d xingchen-web       # 容器访问 http://localhost:8080
+python3 scripts/acceptance_test.py   # 10 项：连接/引擎一致/前向状态机/风控/一致性/预期/预告/摘要/launchd/git
+python3 scripts/engine_cli.py --strategy dual_momentum --mode backtest   # 引擎回测
 ```
 
-看板含**操作台**：一键触发数据更新/双低监控/摘要/风控/验收等任务，实时看输出
-（仅限本机访问，Docker 端口已绑定 127.0.0.1）。
+## ⚖️ 免责声明
 
-> 注意：Docker 与 launchd 二选一，勿同时启用（会重复执行每日任务）。
-> 若改用 Docker，先卸载 launchd：`python3 scripts/install_automation.py uninstall`
-
-## 平台引擎（v4，事件驱动核心）
-
-对标 vnpy/freqtrade 的分层架构，策略与数据/执行/风控解耦：
-
-```bash
-python3 scripts/engine_cli.py --strategy dual_momentum --mode backtest    # 回测
-python3 scripts/engine_cli.py --strategy cb_double_low --mode paper       # 当前信号
-python3 scripts/engine_cli.py --strategy risk_parity --mode backtest      # 回测
-```
-
-架构与迁移说明见 [docs/平台架构设计.md](docs/平台架构设计.md)；
-交易/净值流水持久化于 `data/engine.sqlite`；策略参数见 `config/strategies.yaml`。
-
-## 数据层（DataHub）
-
-统一收口 akshare / yfinance / 新浪 / 东方财富 / OKX / Gate，把自选股清单变成可落库的历史数据：
-
-```bash
-# 增量更新自选股日线到本地（SQLite 元数据 + parquet）
-python3 scripts/datahub_cli.py update --lookback 120
-
-# 实时行情快照
-python3 scripts/datahub_cli.py quote
-
-# 查看同步状态 / 本地日线
-python3 scripts/datahub_cli.py status
-python3 scripts/datahub_cli.py sample --market A股 --symbol 600519
-```
-
-多源自动降级（实测生效）：东财不稳 → 腾讯/新浪；Yahoo 限流 → 新浪美股；加密直连 OKX/Gate 兜底。本地数据目录 `data/` 已加入 .gitignore。
-
-## 因子流水线
-
-基于本地数据计算日频因子并做 IC / 分位验证（无未来函数，含分半稳健性检验）：
-
-```bash
-python3 scripts/factor_cli.py --markets A股 港股 美股 虚拟货币
-```
-
-输出 `data/factors/`（因子面板 / IC 汇总 / 分位组合）与 `docs/因子流水线报告.md`。当前因子：20/60 日动量、20 日波动率、5 日反转、量能异动。
-
-## 研究方向（严谨化）
-
-```bash
-# A股指数成分批量回填（如沪深300，2 年）
-python3 scripts/backfill_a_market.py --index 000300 --lookback 730 --workers 4
-
-# 行业/市值元数据（BaoStock 行业映射 + 东财单股市值）
-python3 scripts/fetch_a_industry.py
-python3 scripts/fetch_a_meta.py
-
-# 因子中性化评估 + walk-forward 组合回测（含成本/IS-OOS/DSR）
-python3 scripts/research_run.py
-```
-
-产出：`docs/因子中性化与稳健性评估报告.md`、`docs/因子组合回测与WalkForward报告.md`。
-
-## 数据源速览
-
-| 板块 | 行情 | 财务 | 期权/衍生品 |
-|------|------|------|-------------|
-| A股 | 东方财富（备用：新浪） | 东方财富F10 | 50ETF/300ETF/科创50ETF 期权、波动率指数 |
-| 港股 | 东方财富 | 东方财富 | 窝轮/牛熊证待接入（HKEX） |
-| 美股 | Yahoo Finance（备用：东方财富） | Yahoo Finance | 个股/ETF 期权链 |
-| 虚拟货币 | ccxt（币安/欧易/Bybit/Gate） | 链上/聚合数据待接入 | Deribit 期权 |
-
-公开接口无需密钥；实盘交易与推送通道需要 `.env` 凭证。
+本项目仅供学习研究参考，**不构成任何投资建议**。所有策略均需先经模拟盘验证（连续 3 个月跑赢基准 + 回测-模拟一致）后才可考虑实盘。市场有风险，入市需谨慎。
