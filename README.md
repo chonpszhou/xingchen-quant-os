@@ -144,6 +144,13 @@ docker compose exec xingchen python3 scripts/run_task.py daily_close_digest   # 
 首次运行建议先更新数据：
 `docker compose exec xingchen python3 scripts/datahub_cli.py update --markets A股 港股 美股 虚拟货币`
 
+**网页看板**（本地或 Docker 均可）：
+
+```bash
+python3 scripts/dashboard.py            # 本机访问 http://127.0.0.1:8080
+docker compose up -d xingchen-web       # 容器访问 http://localhost:8080
+```
+
 > 注意：Docker 与 launchd 二选一，勿同时启用（会重复执行每日任务）。
 > 若改用 Docker，先卸载 launchd：`python3 scripts/install_automation.py uninstall`
 
