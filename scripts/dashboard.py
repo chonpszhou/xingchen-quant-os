@@ -460,15 +460,15 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 <div class="top"><h1>📊 星辰投研团 · 量化操作系统</h1>
 <span id="pill" class="pill">自运转</span><button class="refresh" onclick="toggleRefresh()">自动刷新</button></div>
 <div class="tabs" id="tabs">
-<button class="tab active" data-t="overview">概览</button>
-<button class="tab" data-t="strategies">策略</button>
-<button class="tab" data-t="risk">风控</button>
-<button class="tab" data-t="health">体检</button>
-<button class="tab" data-t="trades">交易</button>
-<button class="tab" data-t="ops">操作台</button>
-<button class="tab" data-t="data">行情/数据</button>
-<button class="tab" data-t="learn">学习</button>
-<button class="tab" data-t="reports">报告</button></div>
+<button class="tab active" data-t="overview" onclick="switchTab('overview',this)">概览</button>
+<button class="tab" data-t="strategies" onclick="switchTab('strategies',this)">策略</button>
+<button class="tab" data-t="risk" onclick="switchTab('risk',this)">风控</button>
+<button class="tab" data-t="health" onclick="switchTab('health',this)">体检</button>
+<button class="tab" data-t="trades" onclick="switchTab('trades',this)">交易</button>
+<button class="tab" data-t="ops" onclick="switchTab('ops',this)">操作台</button>
+<button class="tab" data-t="data" onclick="switchTab('data',this)">行情/数据</button>
+<button class="tab" data-t="learn" onclick="switchTab('learn',this)">学习</button>
+<button class="tab" data-t="reports" onclick="switchTab('reports',this)">报告</button></div>
 <section id="overview" class="active">
 <div class="hero"><h2 style="margin-top:0">组合净值（三策略等权）</h2>{hero}</div>
 <div class="grid">{cards}</div></section>
@@ -501,9 +501,10 @@ h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
 <script>
 const keys = {json.dumps(list(ACTIONS), ensure_ascii=False)};
 let poll=null, timer=null, autoRefresh=false;
-document.getElementById('tabs').addEventListener('click',e=>{{const t=e.target.dataset.t;if(!t)return;
-document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===e.target));
-document.querySelectorAll('section').forEach(s=>s.classList.toggle('active',s.id===t));}});
+function switchTab(id, el){{
+document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===el));
+document.querySelectorAll('section').forEach(s=>s.classList.toggle('active',s.id===id));}}
+document.getElementById('tabs').addEventListener('click',e=>{{const t=e.target.dataset.t;if(!t)return;switchTab(t,e.target);}});
 function toggleRefresh(){{autoRefresh=!autoRefresh;
 if(autoRefresh){{timer=setInterval(()=>{{fetch('/api/log').then(r=>r.json()).then(j=>{{if(!j.running)location.reload();}});}},60000);
 document.querySelector('.refresh').textContent='自动刷新开';}}
@@ -568,7 +569,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.end_headers()
         self.wfile.write(body)
 
