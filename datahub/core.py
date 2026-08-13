@@ -515,8 +515,8 @@ class DataHub:
         """期权市场条目解析到底层市场（ETF→A股 / ticker→美股 / 交易对→加密）"""
         market = item["market"]
         if market != "期权":
-            return market, item["symbol"]
-        sym = item["symbol"]
+            return market, item.get("symbol") or item.get("code")
+        sym = item.get("symbol") or item.get("code")
         if "/" in sym:
             return "虚拟货币", sym
         if sym.isdigit():
