@@ -1,0 +1,144 @@
+[
+  {
+    "ticker": "600519",
+    "name": "贵州茅台",
+    "market": "a",
+    "panel_consensus": 78,
+    "signal_distribution": {
+      "bullish": 41,
+      "neutral": 14,
+      "bearish": 7
+    },
+    "thesis": "高端白酒龙头，现金流稳健，估值回落至历史中枢下沿",
+    "risks": [
+      "消费复苏不及预期",
+      "批价下行"
+    ]
+  },
+  {
+    "ticker": "00700",
+    "name": "腾讯控股",
+    "market": "hk",
+    "panel_consensus": 30,
+    "signal_distribution": {
+      "bullish": 12,
+      "neutral": 18,
+      "bearish": 32
+    },
+    "thesis": "社交+游戏+广告基本面稳健，但估值已反映乐观预期",
+    "risks": [
+      "游戏版号节奏",
+      "宏观广告疲软"
+    ]
+  },
+  {
+    "ticker": "AAPL",
+    "name": "苹果",
+    "market": "us",
+    "panel_consensus": 52,
+    "signal_distribution": {
+      "bullish": 24,
+      "neutral": 22,
+      "bearish": 16
+    },
+    "thesis": "服务业务粘性高，但硬件换机周期见顶",
+    "risks": [
+      "硬件换机周期"
+    ]
+  },
+  {
+    "ticker": "BTCUSDT",
+    "name": "比特币",
+    "market": "crypto",
+    "panel_consensus": 85,
+    "signal_distribution": {
+      "bullish": 59,
+      "neutral": 31,
+      "bearish": 10
+    },
+    "thesis": "量化派生观点（基于近20日动量+趋势，非研究员共识面板）：截至2026-08-28近20日涨跌22.1%，价格站上20日MA → 方向 long",
+    "risks": [
+      "加密资产高波动/黑天鹅",
+      "交易所与监管政策风险",
+      "24h连续交易无涨跌停"
+    ],
+    "source": "quant-derived",
+    "as_of": "2026-08-28"
+  },
+  {
+    "ticker": "ETHUSDT",
+    "name": "以太坊",
+    "market": "crypto",
+    "panel_consensus": 92,
+    "signal_distribution": {
+      "bullish": 64,
+      "neutral": 30,
+      "bearish": 6
+    },
+    "thesis": "量化派生观点（基于近20日动量+趋势，非研究员共识面板）：截至2026-08-28近20日涨跌29.9%，价格站上20日MA → 方向 long",
+    "risks": [
+      "加密资产高波动/黑天鹅",
+      "交易所与监管政策风险",
+      "24h连续交易无涨跌停"
+    ],
+    "source": "quant-derived",
+    "as_of": "2026-08-28"
+  },
+  {
+    "ticker": "BNBUSDT",
+    "name": "币安币",
+    "market": "crypto",
+    "panel_consensus": 80,
+    "signal_distribution": {
+      "bullish": 56,
+      "neutral": 30,
+      "bearish": 14
+    },
+    "thesis": "量化派生观点（基于近20日动量+趋势，非研究员共识面板）：截至2026-08-28近20日涨跌17.4%，价格站上20日MA → 方向 long",
+    "risks": [
+      "加密资产高波动/黑天鹅",
+      "交易所与监管政策风险",
+      "24h连续交易无涨跌停"
+    ],
+    "source": "quant-derived",
+    "as_of": "2026-08-28"
+  },
+  {
+    "ticker": "SOLUSDT",
+    "name": "Solana",
+    "market": "crypto",
+    "panel_consensus": 96,
+    "signal_distribution": {
+      "bullish": 67,
+      "neutral": 30,
+      "bearish": 3
+    },
+    "thesis": "量化派生观点（基于近20日动量+趋势，非研究员共识面板）：截至2026-08-28近20日涨跌38.7%，价格站上20日MA → 方向 long",
+    "risks": [
+      "加密资产高波动/黑天鹅",
+      "交易所与监管政策风险",
+      "24h连续交易无涨跌停"
+    ],
+    "source": "quant-derived",
+    "as_of": "2026-08-28"
+  },
+  {
+    "ticker": "ADAUSDT",
+    "name": "艾达币",
+    "market": "crypto",
+    "panel_consensus": 58,
+    "signal_distribution": {
+      "bullish": 41,
+      "neutral": 30,
+      "bearish": 29
+    },
+    "thesis": "量化派生观点（基于近20日动量+趋势，非研究员共识面板）：截至2026-08-28近20日涨跌3.8%，价格站上20日MA → 方向 long",
+    "risks": [
+      "加密资产高波动/黑天鹅",
+      "交易所与监管政策风险",
+      "24h连续交易无涨跌停"
+    ],
+    "source": "quant-derived",
+    "as_of": "2026-08-28"
+  }
+]

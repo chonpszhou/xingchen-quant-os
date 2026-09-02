@@ -3,32 +3,44 @@
 # 当前仅 paper（模拟盘）可用；以下为实盘预留，凭证就绪后填写并启用
 # =====================================================
 version: "1.0"
-updated: "2026-08-11"
+updated: "2026-09-01"
+
+# ┌────────────────────────────────────────────────────────────┐
+# │ 双闸门安全提示（接入真实券商前必读）                          │
+# │ 真实适配器经 scripts/broker.LiveBroker 包裹，默认 DRY-RUN：  │
+# │   armed = enabled(本段)  AND  (not dry_run)  AND  confirm    │
+# │   - enabled：本段开关，默认 false（下方各家均 false）         │
+# │   - dry_run / confirm：只能由调用方代码显式传入，配置无法单  │
+# │     独把系统置为实盘（confirm 是「我认知真实金钱风险」闸门） │
+# │ 结论：即便把 enabled 改成 true，只要代码不传 confirm=True，   │
+# │       仍绝不会发出任何真实订单（DRY-RUN 拦截并留痕）。        │
+# │ 密钥建议放在 .env（git 忽略），本文件只放非敏感的 host/flag。│
+# └────────────────────────────────────────────────────────────┘
 
 active: "paper"        # paper / qmt / futu / okx
 
 paper:
   initial_cash: 1000000
   cost_rate: 0.001
-  note: "可转债双低模拟盘，状态存 data/paper_cb_state.json"
+  note: "可转债双低模拟盘，状态存 data/paper_cb_state.json；经 LiveBroker 包裹，模拟成交走统一审计"
 
 qmt:
-  enabled: false
+  enabled: false       # ⚠️ 改 true 不会自动发单；仍需代码 confirm=True
   account: ""           # QMT 资金账号
   path: ""              # QMT 安装路径（userdata_mini 等）
   note: "A股实盘；需要券商开通 QMT/迅投量化权限，填入后运行 scripts/broker.py 验证连接"
 
 futu:
-  enabled: false
+  enabled: false       # ⚠️ 改 true 不会自动发单；仍需代码 confirm=True
   host: "127.0.0.1"     # OpenD 地址
   port: 11111
   trd_env: "SIMULATE"   # SIMULATE（模拟）或 REAL（实盘，需权限）
   note: "港股/美股实盘；需安装富途 OpenD 并保持运行"
 
 okx:
-  enabled: false
-  api_key: ""
-  secret: ""
-  passphrase: ""
+  enabled: false       # ⚠️ 改 true 不会自动发单；仍需代码 confirm=True
+  api_key: ""           # 建议改放 .env（OKX_API_KEY）
+  secret: ""            # 建议改放 .env（OKX_SECRET）
+  passphrase: ""        # 建议改放 .env（OKX_PASSPHRASE）
   flag: "0"             # 0=实盘 1=模拟盘(OKX demo)
   note: "加密实盘；API Key 在 OKX 创建，权限仅开交易所需最小集"

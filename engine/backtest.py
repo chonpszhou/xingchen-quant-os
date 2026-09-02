@@ -27,7 +27,7 @@ class BacktestEngine:
         if end is not None:
             close = close[close.index <= pd.Timestamp(end)]
         nav_series = {}
-        pending = {}
+        pending = None
         last_exec = {}
         rows = list(close.iterrows())
         for i, (dt, row) in enumerate(rows):
@@ -44,15 +44,15 @@ class BacktestEngine:
                     self.executor.sell_position(sym, prices.get(sym, 0.0), dt, reason)
                     self.exit_trades += 1
             # 先执行昨日信号（t+1 收盘价）
-            if pending:
+            if pending is not None:
                 if self.risk:
                     ok, msg = self.risk.pre_trade(pending, self.executor.nav(prices))
                     if not ok:
-                        pending = {}
-                if pending and pending != last_exec:
+                        pending = None
+                if pending is not None and pending != last_exec:
                     self.executor.execute(pending, prices, dt)
                     last_exec = pending
-                pending = {}
+                pending = None
             # 今日信号 → 明日执行
             self.strategy.on_bar(None, BarData(symbol="", datetime=dt, close_price=0.0))
             target = dict(getattr(self.strategy, "_target", {}))
@@ -60,6 +60,6 @@ class BacktestEngine:
                 pending = target
             if record_nav:
                 nav_series[dt] = self.executor.nav(prices)
-        if pending:  # 末尾信号也执行一次（收盘价）
+        if pending is not None:  # 末尾信号也执行一次（收盘价，含空仓 flatten）
             self.executor.execute(pending, rows[-1][1].dropna().to_dict(), rows[-1][0])
         return pd.Series(nav_series)

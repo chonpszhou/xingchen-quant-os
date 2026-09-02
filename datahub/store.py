@@ -84,7 +84,10 @@ class LocalStore:
         if not p.exists():
             return None
         df = pd.read_parquet(p)
-        df["date"] = pd.to_datetime(df["date"])
+        _d = pd.to_datetime(df["date"])
+        # 归一化时区：部分数据源(美股/加密)返回 tz-aware，与本地 tz-naive 混合排序会抛
+        # "Cannot compare tz-naive and tz-aware timestamps"
+        df["date"] = _d.dt.tz_localize(None) if getattr(_d.dtype, "tz", None) is not None else _d
         return df.sort_values("date").reset_index(drop=True)
 
     def save_bars(self, market: str, symbol: str, df: pd.DataFrame):
@@ -93,7 +96,9 @@ class LocalStore:
             return
         keep = BAR_COLUMNS + [c for c in OPTIONAL_COLUMNS if c in df.columns]
         df = df[keep].copy()
-        df["date"] = pd.to_datetime(df["date"])
+        _d = pd.to_datetime(df["date"])
+        # 同上：写入前统一去掉时区，保证与存量 parquet 的日期可比较、可排序
+        df["date"] = _d.dt.tz_localize(None) if getattr(_d.dtype, "tz", None) is not None else _d
         for c in BAR_COLUMNS[1:]:
             df[c] = pd.to_numeric(df[c], errors="coerce")
         old = self.load_bars(market, symbol)

@@ -17,6 +17,9 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 
+VERSION = "0.4.0"
+START_TS = time.time()
+
 ACTIONS = {
     "数据更新(四市场)": ["datahub_cli.py", "update", "--markets", "A股", "港股", "美股", "虚拟货币"],
     "全链路(每日任务)": ["run_all.py", "all"],
@@ -31,11 +34,41 @@ ACTIONS = {
     "期权IV快照": ["run_all.py", "iv"],
     "期货更新": ["run_all.py", "futures"],
 }
-TAB_IDS = ["overview", "strategies", "risk", "health", "trades", "ops", "data", "learn", "reports"]
+TAB_IDS = ["overview", "strategies", "risk", "health", "trades", "ops", "data", "scan", "accounts", "learn", "reports"]
+
+# 模拟盘账户定义（显示名, state/nav 文件前缀）——覆盖全部 5 个账户
+ACCOUNT_DEFS = [
+    ("双低·可转债", "paper_cb"),
+    ("双动量·ETF", "paper_mom"),
+    ("风险平价", "paper_rp"),
+    ("加密·等权", "paper_crypto"),
+    ("港股", "paper_hk"),
+    ("AAPL·灰度", "paper_aapl"),
+]
 
 _queue = collections.deque()
 _current = {"name": None, "proc": None}
 _running = {"task": None, "started": None, "log": []}
+
+
+# ---------- 结构化 JSON 日志（进容器 json-file 日志 + 落本地文件）----------
+_ACCESS_LOG = ROOT / "data" / "dashboard_access.log"
+
+
+def log_event(event, **fields):
+    """输出一行结构化 JSON 日志：stdout/stderr 由容器 json-file 驱动采集；
+    同时追加到 data/dashboard_access.log 供宿主机直接查阅。"""
+    rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "event": event, **fields}
+    line = json.dumps(rec, ensure_ascii=False)
+    try:
+        print(line, flush=True)
+    except Exception:
+        pass
+    try:
+        with open(_ACCESS_LOG, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
 
 
 def _run(name, args):
@@ -89,7 +122,7 @@ def cancel():
 
 def nav_data():
     out = {}
-    for name, f in (("双低", "paper_cb"), ("双动量", "paper_mom"), ("风险平价", "paper_rp")):
+    for name, f in ACCOUNT_DEFS:
         p = ROOT / "data" / f"{f}_nav.parquet"
         s = ROOT / "data" / f"{f}_state.json"
         if not p.exists():
@@ -262,7 +295,7 @@ def trades_view():
 
 def paper_positions_view():
     rows = []
-    for name, f in (("双低", "paper_cb"), ("双动量", "paper_mom"), ("风险平价", "paper_rp")):
+    for name, f in ACCOUNT_DEFS:
         p = ROOT / "data" / f"{f}_state.json"
         if not p.exists():
             continue
@@ -276,6 +309,109 @@ def paper_positions_view():
         for n, s, sh, px, val in rows[:30])
     return (f"<div class='stat'><div>持仓<b>{len(rows)}</b></div></div>"
             f"<table><tr><th>策略</th><th>标的</th><th>数量</th><th>最新价</th><th>市值</th></tr>{body}</table>")
+
+
+def _fmt_scan_num(col, v):
+    """扫描表数值列格式化 + 红绿配色（涨绿跌红，按 A股习惯）"""
+    s = str(v)
+    if s in ("", "nan", "None", "NaN"):
+        return "<td>—</td>"
+    pct_cols = {"total_return", "max_dd", "wf_dd", "excess"}
+    flt_cols = {"sharpe", "dsr", "consensus", "wf_oos_sharpe", "pl_ratio",
+                "score", "wf_sharpe", "win_rate"}
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return f"<td>{s}</td>"
+    if col in pct_cols:
+        cls = "up" if f >= 0 else "down"
+        return f"<td class='{cls}'>{f:+.2%}</td>"
+    if col in flt_cols:
+        cls = "up" if f >= 0 else "down"
+        return f"<td class='{cls}'>{f:+.2f}</td>"
+    return f"<td>{f:,.2f}</td>"
+
+
+def scan_view():
+    """只读研究扫描面板：读取最新 data/experiments/sweep_YYYYMMDD.csv"""
+    import re
+    pat = re.compile(r"sweep_(\d{8})\.csv$")
+    best = None
+    d = ROOT / "data" / "experiments"
+    if d.exists():
+        for f in d.glob("sweep_*.csv"):
+            if pat.search(f.name) and (best is None or f.name > best.name):
+                best = f
+    if best is None:
+        return "<p class='muted'>暂无扫描结果（运行 scripts/research_sweep.py 或每周日自动化后生成）</p>"
+    try:
+        df = pd.read_csv(best, encoding="utf-8-sig")
+    except Exception as e:  # noqa: BLE001
+        return f"<p class='muted'>读取扫描失败：{e}</p>"
+    if df.empty:
+        return "<p class='muted'>扫描结果为空</p>"
+    cols = list(df.columns)
+    n_total = len(df)
+    verdict_col = "verdict" if "verdict" in cols else None
+    pass_col = "PASS" if "PASS" in cols else None
+    n_ok = int(df[verdict_col].astype(str).str.contains("✅").sum()) if verdict_col else 0
+    n_no = int(df[verdict_col].astype(str).str.contains("❌").sum()) if verdict_col else 0
+    n_pass = int(df[pass_col].astype(str).str.contains("True").sum()) if pass_col else n_ok
+
+    def cell(col, v):
+        s = str(v)
+        if col == "verdict":
+            cls = "up" if "✅" in s else ("down" if "❌" in s else "")
+            return f"<td><b class='{cls}'>{s}</b></td>"
+        if col == "PASS":
+            cls = "up" if s.strip().lower() == "true" else "down"
+            return f"<td class='{cls}'>{s}</td>"
+        if col in ("direction", "market", "preset", "strategy", "symbol"):
+            return f"<td>{s}</td>"
+        return _fmt_scan_num(col, v)
+
+    head = "".join(f"<th>{c}</th>" for c in cols)
+    body_rows = "".join("<tr>" + "".join(cell(c, r[c]) for c in cols) + "</tr>"
+                        for _, r in df.iterrows())
+    summary = (f"<div class='stat'><div>入扫标的<b>{n_total}</b></div>"
+               f"<div>通过(✅)<b class='up'>{n_ok or n_pass}</b></div>"
+               f"<div>未过(❌)<b class='down'>{n_no}</b></div>"
+               f"<div>文件<b>{best.name}</b></div></div>")
+    note = ("<p class='muted'>数据源：星辰原生五道闸验证（WF+holdout 双闸门 → 质量否决 → DSR≥0.95 → 自审）。"
+            "每周日全自动刷新；权威交付以 paddy 引擎为准，结论一致（当前无实盘候选）。</p>")
+    return summary + f"<table><tr>{head}</tr>{body_rows}</table>" + note
+
+
+def accounts_view():
+    """只读模拟盘面板：全部 5 个账户的净值卡片 + 汇总表 + 持仓"""
+    accounts = nav_data()
+    if not accounts:
+        return "<p class='muted'>暂无模拟盘账户数据</p>"
+    cards = ""
+    for name, a in accounts.items():
+        daily, cum, dd = metrics_of(a["navs"])
+        cards += f"""
+        <div class="card">
+          <div class="card-head"><h3>{name}</h3><span class="badge">{a['days']}天 · 调仓{a['rebal']}</span></div>
+          <div class="big">{a['nav']:,.0f}</div>
+          <div class="chips">
+            <span class="chip {'up' if daily>=0 else 'down'}">日 {daily:+.2%}</span>
+            <span class="chip">累计 {cum:+.2%}</span>
+            <span class="chip {'ok' if dd>=-0.20 else 'warn'}">回撤 {dd:.1%}</span>
+          </div>
+          <div class="sub">基准 {a['bench']:,.0f} · 超额 <b class="{'up' if a['excess']>=0 else 'down'}">{a['excess']:+,.0f}</b></div>
+        </div>"""
+    agg_rows = ""
+    for name, a in accounts.items():
+        daily, cum, dd = metrics_of(a["navs"])
+        agg_rows += (f"<tr><td>{name}</td><td>{a['nav']:,.0f}</td>"
+                     f"<td class=\"{'up' if cum>=0 else 'down'}\">{cum:+.2%}</td>"
+                     f"<td class=\"{'up' if a['excess']>=0 else 'down'}\">{a['excess']:+,.0f}</td>"
+                     f"<td class=\"{'ok' if dd>=-0.20 else 'warn'}\">{dd:.1%}</td>"
+                     f"<td>{a['rebal']}</td><td>{a['date']}</td></tr>")
+    agg = (f"<h2>账户汇总</h2><table><tr><th>账户</th><th>最新净值</th><th>累计</th>"
+           f"<th>超额基准</th><th>最大回撤</th><th>调仓</th><th>日期</th></tr>{agg_rows}</table>")
+    return f"<div class='grid'>{cards}</div>{agg}<h2>持仓明细</h2>{paper_positions_view()}"
 
 
 def market_view():
@@ -428,7 +564,7 @@ def render():
         f'<input type="radio" name="tab" id="t-{tid}" class="tabin" {"checked" if tid=="overview" else ""}>'
         for tid in TAB_IDS)
     labels = "".join(
-        f'<label for="t-{tid}" class="tab">{ {"overview":"概览","strategies":"策略","risk":"风控","health":"体检","trades":"交易","ops":"操作台","data":"行情/数据","learn":"学习","reports":"报告"}[tid] }</label>'
+        f'<label for="t-{tid}" class="tab">{ {"overview":"概览","strategies":"策略","risk":"风控","health":"体检","trades":"交易","ops":"操作台","data":"行情/数据","scan":"研究扫描","accounts":"模拟盘","learn":"学习","reports":"报告"}[tid] }</label>'
         for tid in TAB_IDS)
     pill = "运行中" if _running["task"] else "自运转"
     return f"""<!doctype html><html lang="zh"><head><meta charset="utf-8">
@@ -451,6 +587,8 @@ section{{display:none;padding:20px 24px;max-width:1200px;margin:auto}}
 #t-trades:checked~section#trades{{display:block}}
 #t-ops:checked~section#ops{{display:block}}
 #t-data:checked~section#data{{display:block}}
+#t-scan:checked~section#scan{{display:block}}
+#t-accounts:checked~section#accounts{{display:block}}
 #t-learn:checked~section#learn{{display:block}}
 #t-reports:checked~section#reports{{display:block}}
 #t-overview:checked~.tabs label[for="t-overview"],
@@ -460,6 +598,8 @@ section{{display:none;padding:20px 24px;max-width:1200px;margin:auto}}
 #t-trades:checked~.tabs label[for="t-trades"],
 #t-ops:checked~.tabs label[for="t-ops"],
 #t-data:checked~.tabs label[for="t-data"],
+#t-scan:checked~.tabs label[for="t-scan"],
+#t-accounts:checked~.tabs label[for="t-accounts"],
 #t-learn:checked~.tabs label[for="t-learn"],
 #t-reports:checked~.tabs label[for="t-reports"]{{background:#1e293b;color:#60a5fa;font-weight:600}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}}
@@ -519,6 +659,8 @@ h3{{font-size:14px;color:#93c5fd}}
 <table><tr><th>市场</th><th>标的数</th><th>状态</th></tr>{fresh}</table>
 <div class="stat"><div>期权 IV<b>{iv_line or '—'}</b></div>
 <div>GEX（SPY/QQQ）<b>{gex_line or '数据待补'}</b></div></div></section>
+<section id="scan"><h2>研究驱动全宇宙扫描（五道闸验证）</h2>{scan_view()}</section>
+<section id="accounts"><h2>模拟盘账户（全部 {len(nav_data())} 个）</h2>{accounts_view()}</section>
 <section id="learn"><h2>每日量化学习</h2>{learning_view()}</section>
 <section id="reports"><h2>报告（最近 12 份）</h2><div>{reports or '<span class="muted">暂无</span>'}</div></section>
 <div style="padding:0 24px"><div class="updated">自动生成 · 仅供学习研究参考，不构成投资建议 · 仅限本机访问 · {pd.Timestamp.now():%H:%M:%S}</div></div>
@@ -527,6 +669,34 @@ h3{{font-size:14px;color:#93c5fd}}
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        # —— 健康检查（供 Docker HEALTHCHECK / 监控）——
+        if self.path.startswith("/health"):
+            self._json({
+                "status": "ok",
+                "service": "xingchen-quant-dashboard",
+                "version": VERSION,
+                "uptime_s": round(time.time() - START_TS, 1),
+                "now": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            })
+            return
+        if self.path.startswith("/ready"):
+            try:
+                ready = bool(nav_data())
+            except Exception:
+                ready = False
+            if ready:
+                self._json({
+                    "status": "ready",
+                    "service": "xingchen-quant-dashboard",
+                    "accounts": len(nav_data()),
+                })
+            else:
+                self._json({
+                    "status": "not_ready",
+                    "service": "xingchen-quant-dashboard",
+                    "reason": "no account nav data available",
+                }, code=503)
+            return
         if self.path.startswith("/api/run"):
             from urllib.parse import parse_qs, urlparse
             q = parse_qs(urlparse(self.path).query)
@@ -589,8 +759,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def log_request(self, code="-", size="-"):
+        log_event("http", request=getattr(self, "requestline", "-"),
+                  status=str(code), bytes=str(size))
+
     def log_message(self, *a):
-        pass
+        pass  # 抑制默认纯文本日志，结构化 JSON 由 log_request 统一输出
 
 
 def main():
@@ -598,6 +772,7 @@ def main():
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8080)
     args = p.parse_args()
+    log_event("startup", host=args.host, port=args.port, version=VERSION)
     print(f"看板已启动：http://{args.host}:{args.port}（零 JS 兼容）")
     ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()
 

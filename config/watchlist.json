@@ -815,6 +815,39 @@
       "code": "I0",
       "name": "铁矿石主力",
       "group": "行业基准"
+    },
+    {
+      "market": "美股",
+      "code": "GLD",
+      "symbol": "GLD",
+      "name": "黄金ETF(SPDR Gold Shares)",
+      "group": "模拟盘",
+      "industry": "商品/贵金属",
+      "style": "避险/抗通胀",
+      "has_options": false,
+      "note": "双动量/风险平价模拟盘标的"
+    },
+    {
+      "market": "美股",
+      "code": "DBC",
+      "symbol": "DBC",
+      "name": "商品指数ETF(Invesco DB)",
+      "group": "模拟盘",
+      "industry": "商品/综合",
+      "style": "通胀对冲",
+      "has_options": false,
+      "note": "双动量/风险平价模拟盘标的"
+    },
+    {
+      "market": "美股",
+      "code": "TLT",
+      "symbol": "TLT",
+      "name": "20年期以上美债ETF(iShares)",
+      "group": "模拟盘",
+      "industry": "债券/长久期",
+      "style": "避险/降息受益",
+      "has_options": false,
+      "note": "双动量/风险平价模拟盘标的"
     }
   ]
 }

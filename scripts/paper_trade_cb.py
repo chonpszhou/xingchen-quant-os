@@ -40,6 +40,11 @@ PRICE_CAP = 130.0
 PREMIUM_CAP = 50.0
 MIN_LISTED_DAYS = 30  # 自然日
 REBALANCE_DAYS = 20   # 交易日
+# —— 风控规则（下跌市不再裸奔，与调仓日解耦，每日扫描）——
+STOP_LOSS_PCT = -0.08  # 单债相对建仓价最大回撤，低于则清仓
+MIN_PRICE = 95.0       # 价格破面下限，触发清仓（信用/下修风险信号）
+MAX_WEIGHT = 0.08      # 单只权重上限，超额部分卖出
+MAX_JUMP = 0.10        # 单日价格跳变阈值：超出且该券已不在合格样本内，视为行情异常（转债涨跌幅限制内）
 _STATEDIR = Path(os.environ.get("PAPER_STATE_DIR", str(ROOT / "data")))
 STATE_FILE = _STATEDIR / "paper_cb_state.json"
 NAV_FILE = _STATEDIR / "paper_cb_nav.parquet"
@@ -59,6 +64,10 @@ def fetch_snapshot():
     for c in ("price", "premium", "conv_value"):
         df[c] = pd.to_numeric(df[c], errors="coerce")
     df["list_date"] = pd.to_datetime(df["list_date"], errors="coerce")
+    # 盯市价映射：取全市场（不做合格性过滤）。避免溢价率/评级缺失的券被过滤后
+    # 价格进不了盯市映射、只能沿用旧值造成净值失真（如文科/齐翔/水羊等溢价=nan 的券）
+    all_prices = {str(r["code"]).zfill(6): float(r["price"]) for _, r in df.iterrows()
+                  if pd.notna(r["price"]) and float(r["price"]) > 0}
     df = df[df["list_date"].notna() & (df["list_date"] <= pd.Timestamp.now() - pd.Timedelta(days=MIN_LISTED_DAYS))]
     # 信用过滤：剔除 ST 正股 / C级及以下 / 无评级
     bad = df["stock_name"].astype(str).str.contains("ST") | df["rating"].astype(str).str.startswith("C") \
@@ -68,7 +77,7 @@ def fetch_snapshot():
     df["score"] = df["price"] + df["premium"]
     bench = df.sort_values("score")          # 基准：全部合格券等权
     target = bench.head(N_HOLD)
-    return target, bench
+    return target, bench, all_prices
 
 
 def fetch_snapshot_panel(as_of):
@@ -81,6 +90,9 @@ def fetch_snapshot_panel(as_of):
     panel = panel[panel["date"] <= pd.Timestamp(as_of)]
     panel = panel[panel["bond"].str.startswith(("110", "111", "113", "118", "123", "127", "128"))]
     latest = panel.loc[panel.groupby("bond")["date"].idxmax()]  # 绕开 sort_values 的 pandas/numpy bug
+    # 与 live 快照同口径：盯市用全市场价（不过滤），避免持仓价滞留
+    all_prices = {str(r["bond"]).zfill(6): float(r["close"]) for _, r in latest.iterrows()
+                  if pd.notna(r["close"]) and float(r["close"]) > 0}
     meta_s = meta[["code", "stock_name", "rating"]].rename(columns={"code": "meta_code"})
     latest = latest.merge(meta_s, left_on="bond", right_on="meta_code")
     latest = latest.drop(columns=["meta_code"])
@@ -94,7 +106,7 @@ def fetch_snapshot_panel(as_of):
     bench = latest.sort_values("score")
     target = bench.head(N_HOLD)
     cols = {"bond": "code", "close": "price", "premium_pct": "premium"}
-    return target.rename(columns=cols), bench.rename(columns=cols)
+    return target.rename(columns=cols), bench.rename(columns=cols), all_prices
 
 
 def load_state():
@@ -116,6 +128,64 @@ def trade_days_since(last, today=None):
     return max(1, int((cur - pd.Timestamp(last)).days * 252 / 365))
 
 
+def enforce_risk_rules(st, prices, today, quoted=None, tradable=None):
+    """每日盯市后执行风控：个股止损 / 破面清仓 / 权重上限，返回退出记录列表。
+    与调仓日(20交易日)解耦，下跌市中也能逐日拦截风险，避免一次性建仓后裸奔。
+    quoted:   本次行情源实际收录的券集合；未收录者价格不可信，只告警不误卖。
+    tradable: 允许执行自动卖出的券集合（当日合格样本 target/bench）。
+              不在此集合的持仓价格可信度低，一律只告警不交易，
+              避免按被污染的价格误砍（如摘牌券被按面值 100 计价触发假止损）。
+    """
+    exits = []
+    quoted = set(prices) if quoted is None else quoted
+    tradable = set() if tradable is None else tradable
+    for code, h in st["holdings"].items():
+        h.setdefault("entry_price", h.get("last_price"))
+    for code in list(st["holdings"]):
+        h = st["holdings"][code]
+        px = prices.get(code, h["last_price"])
+        entry = h.get("entry_price", px)
+        # 行情源未收录该券 -> 价格不可信（可能摘牌/停牌），不误卖，仅告警
+        if code not in quoted:
+            exits.append({"code": code, "action": "SKIP_STALE",
+                          "reason": "行情源未收录(价格不可信)"})
+            continue
+        # 非当日合格样本：价格可信度低，只告警、不自动卖出
+        if code not in tradable:
+            exits.append({"code": code, "action": "WATCH_ONLY",
+                          "reason": "非当日合格样本(不自动交易)"})
+            continue
+        # 破面清仓（信用风险 / 下修风险信号）
+        if px < MIN_PRICE:
+            st["cash"] += h["value"] * (1 - COST)
+            exits.append({"code": code, "action": "SELL_MIN_PRICE", "price": round(px, 2)})
+            st["holdings"].pop(code)
+            continue
+        # 相对建仓价回撤止损
+        if entry and px / entry - 1 < STOP_LOSS_PCT:
+            st["cash"] += h["value"] * (1 - COST)
+            exits.append({"code": code, "action": "SELL_STOP_LOSS",
+                          "price": round(px, 2), "entry": round(entry, 2)})
+            st["holdings"].pop(code)
+            continue
+    # 单只权重上限再平衡（同样只在合格样本内执行，避免按可疑价交易）
+    mv = sum(h["value"] for h in st["holdings"].values())
+    nav2 = st["cash"] + mv
+    for code in list(st["holdings"]):
+        if code not in tradable:
+            continue
+        h = st["holdings"][code]
+        w = h["value"] / nav2 if nav2 else 0
+        if w > MAX_WEIGHT:
+            sell_val = h["value"] - MAX_WEIGHT * nav2
+            st["cash"] += sell_val * (1 - COST)
+            h["shares"] -= sell_val / h["last_price"]
+            h["value"] = h["shares"] * h["last_price"]
+            exits.append({"code": code, "action": "TRIM_WEIGHT",
+                          "weight": round(w, 3)})
+    return exits
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--reset", action="store_true")
@@ -131,13 +201,15 @@ def main():
 
     as_of = args.as_of or None
     today = str(date.today()) if not as_of else as_of
-    target, bench = fetch_snapshot_panel(as_of) if as_of else fetch_snapshot()
+    target, bench, all_prices = fetch_snapshot_panel(as_of) if as_of else fetch_snapshot()
     st = load_state()
     st.setdefault("bench_cash", 1_000_000.0)
     st.setdefault("bench_holdings", {})
     due = trade_days_since(st["last_rebalance"], today) >= REBALANCE_DAYS
 
-    prices = target.set_index("code")["price"].to_dict()
+    # 盯市价优先用全市场映射（含被合格性过滤的券），避免价格滞留旧值
+    prices = dict(all_prices)
+    prices.update(target.set_index("code")["price"].to_dict())
     prices.update(bench.set_index("code")["price"].to_dict())
     for code in list(st["holdings"]):
         if code not in prices:
@@ -145,6 +217,18 @@ def main():
     for code in list(st["bench_holdings"]):
         if code not in prices:
             prices[code] = st["bench_holdings"][code]["last_price"]
+
+    # 异常价保护：转债有涨跌幅限制，若新价相对上次偏离过大、且该券已不在合格样本内，
+    # 判为行情异常（如摘牌/停牌后被按面值 100 占位），保留旧价并告警，避免净值失真
+    good_codes = set(target["code"]) | set(bench["code"])
+    price_warn = []
+    for code, h in st["holdings"].items():
+        old = float(h.get("last_price") or 0)
+        new = float(prices.get(code, old) or 0)
+        if old > 0 and new > 0 and code not in good_codes and abs(new / old - 1) > MAX_JUMP:
+            price_warn.append({"code": code, "action": "PRICE_JUMP_SUSPECT",
+                               "old": round(old, 2), "new": round(new, 2)})
+            prices[code] = old
 
     # 持仓盯市（策略 + 基准）
     for code, h in st["holdings"].items():
@@ -157,6 +241,20 @@ def main():
         h["value"] = h["shares"] * h["last_price"]
     bench_mv = sum(h["value"] for h in st["bench_holdings"].values())
     bench_nav = st["bench_cash"] + bench_mv
+
+    # —— 每日风控扫描（独立于调仓日）——
+    quoted_codes = set(all_prices) | set(target["code"]) | set(bench["code"])
+    exits = price_warn + enforce_risk_rules(st, prices, today,
+                                            quoted=quoted_codes, tradable=good_codes)
+    banned = {e["code"] for e in exits if e.get("action") != "SKIP_STALE"}
+    if banned:
+        target = target[~target["code"].isin(banned)]
+        bench = bench[~bench["code"].isin(banned)]
+    if exits:
+        st.setdefault("risk_exits", [])
+        st["risk_exits"] = (st["risk_exits"] + exits)[-50:]
+        for e in exits:
+            print(f"  [风控] {e}")
 
     if due and len(target) >= N_HOLD:
         # ---- 策略组合调仓 ----
@@ -172,7 +270,8 @@ def main():
                 continue
             shares = target_value / r["price"]
             st["holdings"][code] = {"shares": shares, "last_price": float(r["price"]),
-                                    "value": target_value, "entry_date": today}
+                                    "value": target_value, "entry_date": today,
+                                    "entry_price": float(r["price"])}
             st["cash"] -= target_value * (1 + COST)
         # ---- 基准组合调仓（全合格券等权） ----
         bench_codes = set(bench["code"])

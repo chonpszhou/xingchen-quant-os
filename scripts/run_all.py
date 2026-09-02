@@ -14,6 +14,8 @@
     python3 scripts/run_all.py status     # 系统健康看板
     python3 scripts/run_all.py momentum   # 双动量模拟盘推进
     python3 scripts/run_all.py rp         # 风险平价模拟盘推进
+    python3 scripts/run_all.py crypto     # 虚拟货币模拟盘推进
+    python3 scripts/run_all.py hk         # 港股模拟盘推进
     python3 scripts/run_all.py validate   # 模拟盘引擎一致性校验
     python3 scripts/run_all.py weekly     # 周报生成
     python3 scripts/run_all.py portfolio  # 组合模拟盘视图
@@ -143,6 +145,18 @@ def digest():
                   f"- 净值 {rl['nav']:,.0f} | SPY基准 {rl['bench_nav']:,.0f}（超额 {rl['nav'] - rl['bench_nav']:+,.0f}）| "
                   f"净值日 {rl['date'].date()}",
                   ""]
+    # AAPL 波动率目标动量灰度模拟盘（续十候选前向跟踪）
+    aapl_nav = ROOT / "data" / "paper_aapl_nav.parquet"
+    aapl_state = ROOT / "data" / "paper_aapl_state.json"
+    if aapl_nav.exists():
+        anav = pd.read_parquet(aapl_nav)
+        al = anav.iloc[-1]
+        bench_txt = f" | AAPL基准 {al['bench_nav']:,.0f}（超额 {al['nav'] - al['bench_nav']:+,.0f}）" \
+            if "bench_nav" in anav.columns else ""
+        w_txt = f" | 当前权重 {al['weight']:.2f}" if "weight" in anav.columns else ""
+        lines += ["## AAPL 波动率目标动量灰度模拟盘（观察级·续十候选）", "",
+                  f"- 净值 {al['nav']:,.0f}{bench_txt} | 调仓 {0} 次{w_txt} | 净值日 {al['date'].date()}",
+                  ""]
     # 风控状态
     risk_file = ROOT / "docs" / "风控状态.md"
     if risk_file.exists():
@@ -170,6 +184,10 @@ def main():
         "status": [("system_status.py", ())],
         "momentum": [("paper_trade_momentum.py", ())],
         "rp": [("paper_trade_rp.py", ())],
+        "crypto": [("paper_trade_crypto.py", ())],
+        "hk": [("paper_trade_hk.py", ())],
+        "aapl": [("paper_trade_aapl.py", ())],
+        "learn-bridge": [("learning_to_research.py", ())],
         "validate": [("validate_paper_engines.py", ())],
         "weekly": [("report_weekly.py", ())],
         "portfolio": [("portfolio_view.py", ())],
@@ -183,7 +201,10 @@ def main():
         "gex": [("gex_snapshot.py", ())],
         "all": [("datahub_cli.py", ("update", "--markets", "A股", "港股", "美股", "虚拟货币")),
                 ("run_cb_double_low.py", ()), ("paper_trade_cb.py", ()),
-                ("paper_trade_momentum.py", ()), ("paper_trade_rp.py", ()),
+                ("paper_trade_momentum.py", ()),                 ("paper_trade_rp.py", ()),
+                ("paper_trade_crypto.py", ()),
+                ("paper_trade_hk.py", ()),
+                ("paper_trade_aapl.py", ()),
                 ("options_iv_snapshot.py", ()), ("fetch_futures.py", ()),
                 ("risk_monitor.py", ()), ("monitor_backtest_consistency.py", ())],
     }
