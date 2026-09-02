@@ -1,6 +1,9 @@
 # 星辰投研团 · 容器内定时任务（时区 Asia/Shanghai）
 SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
+# Obsidian vault 挂载点（容器 compose 挂载 ~/Documents/Obsidian Vault/量化交易 → /app/量化交易）
+# cron 子进程不继承 docker environment，故在此声明，供 learn_daily/learn_hourly 同步笔记
+OBSIDIAN_VAULT=/app/量化交易
 
 # 工作日 16:35：全链路（数据→信号→三模拟盘→IV→期货→风控→一致性→摘要→推送）
 35 16 * * 1-5 root cd /app && python3 scripts/run_all.py all >> /var/log/xingchen.log 2>&1

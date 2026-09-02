@@ -137,16 +137,18 @@ def main():
     # Obsidian 追加
     vault = Path(__import__("os").environ.get("OBSIDIAN_VAULT",
         str(Path.home() / "Documents" / "Obsidian Vault")))
+    # 兼容：若 OBSIDIAN_VAULT 已直接指向「量化交易」子目录（容器挂载场景），不再叠加该段
+    base = vault if vault.name == "量化交易" else vault / "量化交易"
     try:
-        dest_dir = vault / "量化交易" / "学习日志"
+        dest_dir = base / "学习日志"
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / f"学习日志_{today}.md"
         if not dest.exists():
             dest.write_text("\n".join(header), encoding="utf-8")
         with open(dest, "a", encoding="utf-8") as f:
             f.write("\n".join(entry))
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[obsidian-sync] 学习日志同步失败（已跳过）: {e}", file=sys.stderr)
 
     # 入库
     row = pd.DataFrame([{"date": today, "hour": hour, "source": item["source"],

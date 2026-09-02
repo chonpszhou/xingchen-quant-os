@@ -8,6 +8,9 @@ services:
     restart: unless-stopped
     environment:
       - TZ=Asia/Shanghai
+      # Obsidian vault（仅挂载「量化交易」子目录，限制 blast radius）— cron 子进程仍需在 docker/crontab 顶部声明，
+      # 因 cron 不继承此处 environment。挂载点命名为「量化交易」以便 learn 脚本智能解析 vault.name
+      - OBSIDIAN_VAULT=/app/量化交易
     env_file:
       - path: .env
         required: false
@@ -17,6 +20,7 @@ services:
       - ./config:/app/config      # 配置可改（broker/push/tasks 等）
       - ./.env:/app/.env:ro       # 推送/券商凭证（可空）
       - ./logs:/var/log           # 运行日志
+      - /Users/zhoupeng/Documents/Obsidian Vault/量化交易:/app/量化交易:rw   # 学习笔记同步真源（仅量化交易子目录）
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
