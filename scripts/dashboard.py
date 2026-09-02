@@ -12,6 +12,7 @@ import time
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote
 
 import pandas as pd
 
@@ -750,10 +751,17 @@ class Handler(BaseHTTPRequestHandler):
                         "queue": [n for n, _ in _queue]})
             return
         if self.path.startswith("/file/"):
-            name = self.path.split("/file/", 1)[1]
-            p = ROOT / "docs" / name
-            if p.exists() and p.is_file():
-                body = p.read_bytes()
+            name = unquote(self.path.split("/file/", 1)[1])
+            target = (ROOT / "docs" / name).resolve()
+            docs_root = (ROOT / "docs").resolve()
+            # 防目录穿越：仅允许访问 docs 目录内文件
+            if not str(target).startswith(str(docs_root) + "/") and target != docs_root:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b"bad path")
+                return
+            if target.is_file():
+                body = target.read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/markdown; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
