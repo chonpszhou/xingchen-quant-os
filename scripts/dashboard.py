@@ -175,18 +175,18 @@ def svg_dual(dates, navs, benchs, w=560, h=150):
     for g in range(4):
         gy = pad_t + g * (h - pad_t - pad_b) / 3
         val = mx - g * rng / 3
-        grid += (f'<line x1="{pad_l}" y1="{gy:.1f}" x2="{w-pad_r}" y2="{gy:.1f}" stroke="#1e293b"/>'
-                 f'<text x="{pad_l-6}" y="{gy+3:.1f}" fill="#64748b" font-size="10" text-anchor="end">{val:,.0f}</text>')
+        grid += (f'<line x1="{pad_l}" y1="{gy:.1f}" x2="{w-pad_r}" y2="{gy:.1f}" stroke="#1e2a44"/>'
+                 f'<text x="{pad_l-6}" y="{gy+3:.1f}" fill="#5b6b85" font-size="10" text-anchor="end">{val:,.0f}</text>')
     return (f'<svg viewBox="0 0 {w} {h}" style="width:100%;height:{h}px">'
-            f'{grid}<polygon points="{area}" fill="rgba(59,130,246,0.12)"/>'
-            f'<polyline fill="none" stroke="#3b82f6" stroke-width="2.2" points="{pts_n}"/>'
-            f'<polyline fill="none" stroke="#f59e0b" stroke-width="1.6" stroke-dasharray="5,4" points="{pts_b}"/>'
-            f'<text x="{pad_l}" y="{h-5}" fill="#64748b" font-size="10">{dates[0]}</text>'
-            f'<text x="{w-pad_r}" y="{h-5}" fill="#64748b" font-size="10" text-anchor="end">{dates[-1]}</text>'
-            f'<rect x="{w-150}" y="4" width="12" height="3" fill="#3b82f6"/>'
-            f'<text x="{w-134}" y="8" fill="#94a3b8" font-size="10">净值</text>'
-            f'<rect x="{w-92}" y="4" width="12" height="3" fill="#f59e0b"/>'
-            f'<text x="{w-76}" y="8" fill="#94a3b8" font-size="10">基准</text></svg>')
+            f'{grid}<polygon points="{area}" fill="rgba(91,141,239,0.10)"/>'
+            f'<polyline fill="none" stroke="#5b8def" stroke-width="2.2" points="{pts_n}"/>'
+            f'<polyline fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-dasharray="5,4" points="{pts_b}"/>'
+            f'<text x="{pad_l}" y="{h-5}" fill="#5b6b85" font-size="10">{dates[0]}</text>'
+            f'<text x="{w-pad_r}" y="{h-5}" fill="#5b6b85" font-size="10" text-anchor="end">{dates[-1]}</text>'
+            f'<rect x="{w-150}" y="4" width="12" height="3" fill="#5b8def"/>'
+            f'<text x="{w-134}" y="8" fill="#8b9bb4" font-size="10">净值</text>'
+            f'<rect x="{w-92}" y="4" width="12" height="3" fill="#fbbf24"/>'
+            f'<text x="{w-76}" y="8" fill="#8b9bb4" font-size="10">基准</text></svg>')
 
 
 def cb_top():
@@ -361,10 +361,11 @@ def scan_view():
     def cell(col, v):
         s = str(v)
         if col == "verdict":
-            cls = "up" if "✅" in s else ("down" if "❌" in s else "")
+            # 状态色（通过=绿/未过=红），与价格涨跌语义分离，避免和红涨绿跌混淆
+            cls = "pass" if "✅" in s else ("fail" if "❌" in s else "")
             return f"<td><b class='{cls}'>{s}</b></td>"
         if col == "PASS":
-            cls = "up" if s.strip().lower() == "true" else "down"
+            cls = "pass" if s.strip().lower() == "true" else "fail"
             return f"<td class='{cls}'>{s}</td>"
         if col in ("direction", "market", "preset", "strategy", "symbol"):
             return f"<td>{s}</td>"
@@ -486,10 +487,13 @@ def task_page(msg=""):
     log = "".join(f"{l}<br>" for l in _running["log"][-80:]) or "（暂无输出）"
     body = f"""<!doctype html><html lang="zh"><head><meta charset="utf-8">{meta}
 <title>星辰投研团 · 任务</title><style>
-body{{font-family:-apple-system,'PingFang SC',sans-serif;background:#0b1120;color:#e2e8f0;padding:24px;max-width:900px;margin:auto}}
-pre{{background:#0b1220;border:1px solid #1e293b;border-radius:10px;padding:12px;font-size:12px;white-space:pre-wrap;font-family:ui-monospace,monospace}}
-.btn{{background:#2563eb;color:#fff;border:0;border-radius:8px;padding:8px 14px;margin:4px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}}
-.btn.red{{background:#b91c1c}}
+body{{font-family:-apple-system,'PingFang SC',system-ui,sans-serif;background:#0a0e1a;color:#e6edf6;padding:24px;max-width:900px;margin:auto;line-height:1.5}}
+pre{{background:#0b1220;border:1px solid #1e2a44;border-radius:12px;padding:14px;font-size:12px;white-space:pre-wrap;font-family:ui-monospace,monospace;color:#cbd5e1}}
+.btn{{background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:9px 15px;margin:4px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block;transition:filter .16s ease}}
+.btn:hover{{filter:brightness(1.1)}}
+.btn:focus-visible{{outline:2px solid #5b8def;outline-offset:2px}}
+.btn.red{{background:#dc2626}}
+@media (prefers-reduced-motion:reduce){{*{{transition:none!important}}}}
 </style></head><body>
 <h2>任务状态：{state}</h2>
 <p>队列：{("、".join(queue) if queue else "无")}</p>
@@ -572,14 +576,34 @@ def render():
 <meta http-equiv="refresh" content="60">
 <title>星辰投研团 · 量化操作系统</title>
 <style>
-body{{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#0b1120;color:#e2e8f0;margin:0}}
-.top{{background:linear-gradient(135deg,#0f172a,#1e293b);border-bottom:1px solid #1e293b;padding:14px 24px;display:flex;align-items:center;gap:14px}}
-.top h1{{font-size:18px;margin:0;flex:1}}
-.pill{{font-size:12px;padding:4px 10px;border-radius:20px;background:{'#3b2314' if _running['task'] else '#0e2a1d'};color:{'#fbbf24' if _running['task'] else '#4ade80'};border:1px solid {'#78350f' if _running['task'] else '#14532d'}}}
-.tabs{{display:flex;gap:4px;padding:10px 24px;border-bottom:1px solid #1e293b;background:#0f172a;overflow-x:auto}}
-.tab{{background:none;border:0;color:#94a3b8;font-size:14px;padding:8px 16px;border-radius:8px;cursor:pointer;white-space:nowrap}}
+:root{{
+  --bg:#0a0e1a; --surface:#0f1629; --surface-2:#131c30; --border:#1e2a44; --border-soft:#16203a;
+  --text:#e6edf6; --muted:#8b9bb4; --faint:#5b6b85;
+  --primary:#5b8def; --primary-strong:#3b82f6;
+  --up:#f87171; --up-bg:#2a1414;          /* 涨=红（A股习惯） */
+  --down:#4ade80; --down-bg:#0e2a1d;      /* 跌=绿 */
+  --pass:#4ade80; --fail:#f87171;          /* 状态色：通过=绿 / 未过=红 */
+  --warn:#fbbf24; --info:#60a5fa; --purple:#c4b5fd;
+  --r-sm:8px; --r:12px; --r-lg:16px;
+  --sh-sm:0 1px 2px rgba(0,0,0,.3); --sh:0 6px 18px -6px rgba(0,0,0,.5);
+  --tr:160ms ease;
+}}
+*{{box-sizing:border-box}}
+body{{font-family:-apple-system,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background:var(--bg);color:var(--text);margin:0;line-height:1.5;-webkit-font-smoothing:antialiased}}
+a{{color:var(--info);text-decoration:none}}
+.top{{background:linear-gradient(135deg,#0d1426,#15203a);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:14px}}
+.top h1{{font-size:18px;margin:0;flex:1;letter-spacing:.3px}}
+.pill{{font-size:12px;padding:4px 12px;border-radius:20px;background:{'#3b2314' if _running['task'] else '#0e2a1d'};color:{'#fbbf24' if _running['task'] else '#4ade80'};border:1px solid {'#78350f' if _running['task'] else '#14532d'}}}
+.dot{{width:8px;height:8px;border-radius:50%;background:var(--pass);flex:none;animation:pulse 2s infinite}}
+@keyframes pulse{{0%{{box-shadow:0 0 0 0 rgba(74,222,128,.5)}}70%{{box-shadow:0 0 0 7px rgba(74,222,128,0)}}100%{{box-shadow:0 0 0 0 rgba(74,222,128,0)}}}}
+.ver{{font-size:11px;color:var(--faint);border:1px solid var(--border);padding:2px 8px;border-radius:8px}}
+.tabs{{display:flex;gap:6px;padding:10px 24px;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto;position:sticky;top:0;z-index:20;backdrop-filter:blur(6px)}}
+.tab{{background:none;border:0;color:var(--muted);font-size:14px;padding:9px 16px;border-radius:10px;cursor:pointer;white-space:nowrap;transition:background var(--tr),color var(--tr)}}
+.tab:hover{{color:var(--text);background:var(--surface-2)}}
+.tab:focus-visible{{outline:2px solid var(--primary);outline-offset:2px}}
 .tabin{{display:none}}
-section{{display:none;padding:20px 24px;max-width:1200px;margin:auto}}
+section{{display:none;padding:22px 24px;max-width:1200px;margin:auto;animation:fade .2s ease}}
+@keyframes fade{{from{{opacity:.4}}to{{opacity:1}}}}
 #t-overview:checked~section#overview{{display:block}}
 #t-strategies:checked~section#strategies{{display:block}}
 #t-risk:checked~section#risk{{display:block}}
@@ -601,39 +625,47 @@ section{{display:none;padding:20px 24px;max-width:1200px;margin:auto}}
 #t-scan:checked~.tabs label[for="t-scan"],
 #t-accounts:checked~.tabs label[for="t-accounts"],
 #t-learn:checked~.tabs label[for="t-learn"],
-#t-reports:checked~.tabs label[for="t-reports"]{{background:#1e293b;color:#60a5fa;font-weight:600}}
+#t-reports:checked~.tabs label[for="t-reports"]{{background:var(--surface-2);color:var(--info);font-weight:600;box-shadow:inset 0 -2px 0 var(--primary)}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}}
-.card{{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px}}
-.hero{{background:linear-gradient(135deg,#172554,#1e293b);border:1px solid #1e3a8a;border-radius:14px;padding:20px;margin-bottom:16px}}
-.card-head{{display:flex;justify-content:space-between;align-items:center}}
-.card-head h3{{margin:0;font-size:15px}}
-.badge{{font-size:11px;color:#94a3b8;background:#1e293b;padding:3px 8px;border-radius:10px}}
-.big{{font-size:30px;font-weight:800;margin:8px 0 6px;font-variant-numeric:tabular-nums}}
-.chips{{display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap}}
-.chip{{font-size:12px;padding:3px 9px;border-radius:8px;background:#1e293b;color:#cbd5e1}}
-.chip.up{{color:#4ade80;background:#0e2a1d}}.chip.down{{color:#f87171;background:#2a0e0e}}
-.chip.ok{{color:#4ade80}}.chip.warn{{color:#fbbf24}}
-.sub{{font-size:13px;color:#94a3b8}}
-.up{{color:#4ade80}}.down{{color:#f87171}}
-.curve{{margin-top:10px}}
-table{{border-collapse:collapse;width:100%;font-size:13px;background:#0f172a;border-radius:10px;overflow:hidden}}
-td,th{{padding:8px 12px;border-bottom:1px solid #1e293b;text-align:left}}
-th{{color:#93c5fd;font-weight:600;background:#111c2e}}
-tr:hover td{{background:#16233a}}
-.rate{{font-weight:600;color:#c4b5fd}}
-h2{{font-size:16px;margin:22px 0 10px;color:#93c5fd}}
-h3{{font-size:14px;color:#93c5fd}}
-.btn{{background:#2563eb;color:#fff;border:0;border-radius:8px;padding:8px 14px;margin:4px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block}}
-.btn:hover{{background:#3b82f6}}
-.rep{{display:inline-block;color:#60a5fa;background:#111c2e;border:1px solid #1e3a8a;padding:6px 12px;border-radius:8px;margin:4px;text-decoration:none;font-size:13px}}
-.updated{{color:#475569;font-size:12px;margin:24px 0}}
-.muted{{color:#64748b}}
-.stat{{display:flex;gap:24px;flex-wrap:wrap;margin:8px 0}}
-.stat div{{font-size:13px;color:#94a3b8}}.stat b{{color:#e2e8f0;font-size:16px;display:block}}
+.card{{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;transition:transform var(--tr),box-shadow var(--tr),border-color var(--tr)}}
+.card:hover{{transform:translateY(-3px);box-shadow:var(--sh);border-color:#2b3a5e}}
+.hero{{background:radial-gradient(120% 140% at 0% 0%,#16224a 0%,#0f1629 60%);border:1px solid #21336b;border-radius:var(--r-lg);padding:22px;margin-bottom:18px}}
+.card-head{{display:flex;justify-content:space-between;align-items:center;gap:10px}}
+.card-head h3{{margin:0;font-size:15px;color:var(--text)}}
+.badge{{font-size:11px;color:var(--muted);background:var(--surface-2);padding:3px 9px;border-radius:10px;border:1px solid var(--border-soft)}}
+.big{{font-size:30px;font-weight:800;margin:10px 0 8px;font-variant-numeric:tabular-nums;letter-spacing:.5px}}
+.chips{{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}}
+.chip{{font-size:12px;padding:4px 10px;border-radius:9px;background:var(--surface-2);color:var(--muted);border:1px solid var(--border-soft)}}
+.chip.up{{color:var(--up);background:var(--up-bg)}}.chip.down{{color:var(--down);background:var(--down-bg)}}
+.chip.ok{{color:var(--pass);background:var(--down-bg)}}.chip.warn{{color:var(--warn);background:#2a230e}}
+.sub{{font-size:13px;color:var(--muted)}}
+.up{{color:var(--up)}}.down{{color:var(--down)}}
+.pass{{color:var(--pass);font-weight:600}}.fail{{color:var(--fail);font-weight:600}}
+.curve{{margin-top:12px}}
+table{{border-collapse:collapse;width:100%;font-size:13px;background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--border)}}
+td,th{{padding:9px 13px;border-bottom:1px solid var(--border);text-align:left}}
+th{{color:var(--info);font-weight:600;background:var(--surface-2)}}
+tr:hover td{{background:var(--surface-2)}}
+.rate{{font-weight:600;color:var(--purple)}}
+h2{{font-size:16px;margin:24px 0 12px;color:var(--info);display:flex;align-items:center;gap:8px}}
+h2::before{{content:"";width:4px;height:16px;background:var(--primary);border-radius:3px;display:inline-block}}
+h3{{font-size:14px;color:var(--info);margin:16px 0 8px}}
+.btn{{background:linear-gradient(180deg,var(--primary),var(--primary-strong));color:#fff;border:0;border-radius:10px;padding:9px 15px;margin:4px;cursor:pointer;font-size:13px;text-decoration:none;display:inline-block;box-shadow:var(--sh-sm);transition:transform var(--tr),box-shadow var(--tr),filter var(--tr)}}
+.btn:hover{{transform:translateY(-1px);box-shadow:var(--sh);filter:brightness(1.07)}}
+.btn:active{{transform:translateY(0)}}
+.btn:focus-visible{{outline:2px solid var(--primary);outline-offset:2px}}
+.rep{{display:inline-block;color:var(--info);background:var(--surface-2);border:1px solid #21336b;padding:7px 13px;border-radius:10px;margin:4px;font-size:13px;transition:border-color var(--tr),background var(--tr)}}
+.rep:hover{{border-color:var(--primary);background:#16213c}}
+.updated{{color:var(--faint);font-size:12px;margin:24px 0}}
+.muted{{color:var(--faint)}}
+.stat{{display:flex;gap:26px;flex-wrap:wrap;margin:10px 0}}
+.stat div{{font-size:13px;color:var(--muted)}}.stat b{{color:var(--text);font-size:16px;display:block;font-variant-numeric:tabular-nums}}
+@media (prefers-reduced-motion:reduce){{*{{animation:none!important;transition:none!important}}}}
+@media (max-width:640px){{.top h1{{font-size:15px}}.big{{font-size:24px}}section{{padding:16px}}}}
 </style></head><body>
 {radios}
-<div class="top"><h1>📊 星辰投研团 · 量化操作系统</h1><span class="pill">{pill}</span>
-<span class="muted" style="font-size:12px">页面每60秒自动刷新 · 零JS兼容</span></div>
+<div class="top"><span class="dot" title="系统在线"></span><h1>📊 星辰投研团 · 量化操作系统</h1><span class="ver">v{VERSION}</span><span class="pill">{pill}</span>
+<span class="muted" style="font-size:12px">每60秒自动刷新 · 零JS兼容</span></div>
 <div class="tabs">{labels}</div>
 <section id="overview">
 <div class="hero"><h2 style="margin-top:0">组合净值（三策略等权）</h2>{hero}</div>
