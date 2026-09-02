@@ -206,7 +206,8 @@ def main():
                 ("paper_trade_hk.py", ()),
                 ("paper_trade_aapl.py", ()),
                 ("options_iv_snapshot.py", ()), ("fetch_futures.py", ()),
-                ("risk_monitor.py", ()), ("monitor_backtest_consistency.py", ())],
+                ("risk_monitor.py", ()), ("monitor_backtest_consistency.py", ()),
+                ("learning_to_research.py", ())],   # 学习闭环：每日把学习笔记并入候选(learning_views.json)
     }
     if step not in steps:
         print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / test / risk / consistency / expected / preview / learn / learn_hourly / gex / all")

@@ -199,8 +199,9 @@ def _portfolio_layer(views, ds, limit: int = 800):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--research", default=str(ROOT / "config" / "research_views.json"))
-    p.add_argument("--learning", default=None,
-                   help="学习派生观点文件（learning_to_research.py 产出），并入扫描")
+    p.add_argument("--learning", default=str(ROOT / "config" / "learning_views.json"),
+                   help="学习派生观点文件（learning_to_research.py 产出），并入扫描；"
+                        "默认自动探测 config/learning_views.json（缺失/空则跳过）")
     p.add_argument("--strategies", default=None,
                    help="逗号分隔的策略列表（覆盖默认多策略集）；如 sma_cross,momentum,cs_momentum,ml_factor,vol_target_momentum")
     p.add_argument("--limit", type=int, default=800)
