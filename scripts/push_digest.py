@@ -93,6 +93,8 @@ def send_webhook(kind, cfg, env, body):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--text", default="")
+    p.add_argument("--file", default="")
+    p.add_argument("--subject", default="")
     p.add_argument("--check", action="store_true")
     args = p.parse_args()
     cfg = yaml.safe_load((ROOT / "config" / "push.yaml").read_text(encoding="utf-8"))
@@ -113,11 +115,21 @@ def main():
         return 0
 
     digest = latest_digest()
-    if not digest:
-        print("未找到投研摘要，先运行 python3 scripts/run_all.py digest")
+    if not digest and not (args.text or args.file):
+        print("未找到投研摘要，先运行 python3 scripts/run_all.py digest，或用 --text/--file 指定内容")
         return 1
-    body = args.text or digest.read_text(encoding="utf-8")
-    subject = args.text and "星辰投研团 · 通知" or f"星辰投研团 · 投研摘要 {digest.stem.split('_')[-1]}"
+    body = args.text
+    if not body and args.file:
+        fp = Path(args.file)
+        body = fp.read_text(encoding="utf-8") if fp.exists() else ""
+    if not body and digest:
+        body = digest.read_text(encoding="utf-8")
+    if not body:
+        print("无推送内容")
+        return 1
+    is_custom = bool(args.text or args.file)
+    subject = (args.subject or (is_custom and "星辰投研团 · 通知"
+                                or f"星辰投研团 · 投研摘要 {digest.stem.split('_')[-1]}"))
 
     sent = 0
     if channels.get("email", {}).get("enabled"):

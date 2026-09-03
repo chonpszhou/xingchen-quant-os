@@ -17,12 +17,19 @@ OBSIDIAN_VAULT=/app/量化交易
 # 每小时整点：轻学习（未读池轮转 + 成果卡片）
 0 * * * * root cd /app && python3 scripts/learn_hourly.py >> /var/log/xingchen.log 2>&1
 
-# 每小时整点：盘中盯市（用实时报价重估五账户权益 → data/intraday_mtm.json）
+# 每 15 分钟：盘中盯市（用实时报价重估五账户权益 → data/intraday_mtm.json）
 # 只重估净值、不改持仓逻辑；与日终 16:35 批处理解耦，不写入 paper_*_nav.parquet
-0 * * * * root cd /app && python3 scripts/mark_to_market.py >> /var/log/xingchen.log 2>&1
+# 频率从 1h 提升到 15min，让活跃时段权益更跟手（请求量上升，Tencent/Binance 均快且稳）
+*/15 * * * * root cd /app && python3 scripts/mark_to_market.py >> /var/log/xingchen.log 2>&1
 
 # 周日 20:00：周报 + 推送
 0 20 * * 0 root cd /app && python3 scripts/report_weekly.py >> /var/log/xingchen.log 2>&1 && python3 scripts/push_digest.py >> /var/log/xingchen.log 2>&1
 
 # 月末 17:30：三账户月报 + 推送
 30 17 28-31 * * root cd /app && python3 scripts/report_monthly.py >> /var/log/xingchen.log 2>&1 && python3 scripts/push_digest.py >> /var/log/xingchen.log 2>&1
+
+# 每日 16:50：系统防回归冒烟测试（item ④）
+# 校验看板 200+账户面板 / 盘中盯市 JSON 无 NaN / 各账户 NAV 行数不降 / market_status 合理性。
+# 跑在 16:35 全链路批处理与 15min 盯市之后，数据最完整；任一失败进 xingchen.log 便于排查。
+# 看板地址自动探测（宿主/自身 localhost:8080；cron 容器经 compose 服务名 xingchen-quant-web:8080）。
+50 16 * * * root cd /app && python3 scripts/smoke_test.py >> /var/log/xingchen.log 2>&1

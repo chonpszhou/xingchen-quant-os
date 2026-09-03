@@ -171,6 +171,21 @@ def digest():
     log(f"✓ 摘要已生成: {out}")
 
 
+def _push_drawdown_if_breach():
+    """回撤告警触发时，在每日摘要前先紧急推送告警（item ⑤）。"""
+    aj = ROOT / "data" / "drawdown_alert.json"
+    amd = ROOT / "data" / "drawdown_alert.md"
+    if not aj.exists():
+        return
+    try:
+        data = json.loads(aj.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    if any(a.get("breach") for a in data.get("accounts", {}).values()):
+        log("🚨 检测到权益回撤告警，立即推送")
+        run("push_digest.py", ("--file", str(amd), "--subject", "星辰投研团 · 回撤告警"))
+
+
 def main():
     step = sys.argv[1] if len(sys.argv) > 1 else "all"
     steps = {
@@ -193,7 +208,8 @@ def main():
         "weekly": [("report_weekly.py", ())],
         "portfolio": [("portfolio_view.py", ())],
         "test": [("test_paper_forward.py", ())],
-        "risk": [("risk_monitor.py", ())],
+        "risk": [("risk_monitor.py", ()), ("drawdown_alert.py", ())],
+        "drawdown": [("drawdown_alert.py", ())],
         "consistency": [("monitor_backtest_consistency.py", ())],
         "expected": [("expected_path.py", ())],
         "preview": [("preview_next_rebalance.py", ())],
@@ -208,6 +224,7 @@ def main():
                 ("paper_trade_aapl.py", ()),
                 ("options_iv_snapshot.py", ()), ("fetch_futures.py", ()),
                 ("risk_monitor.py", ()), ("monitor_backtest_consistency.py", ()),
+                ("drawdown_alert.py", ()),         # 实时权益回撤告警（vs 历史峰值 ≤ -5%）→ 触发则紧急推送
                 ("learning_to_research.py", ()),   # 学习闭环：每日把学习笔记并入候选(learning_views.json)
                 ("methods_backtest.py", ())],      # 动态方法库·无闸回测（方法注册即生效，五道闸只用于晋升）
     }
@@ -219,6 +236,7 @@ def main():
     if step in ("all", "digest"):
         digest()
         if step == "all":
+            _push_drawdown_if_breach()  # 回撤告警优先于每日摘要推送
             run("push_digest.py")  # 摘要生成后再推送
     log("全部完成")
     return 0
