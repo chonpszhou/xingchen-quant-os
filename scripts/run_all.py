@@ -210,6 +210,7 @@ def main():
         "test": [("test_paper_forward.py", ())],
         "risk": [("risk_monitor.py", ()), ("drawdown_alert.py", ())],
         "drawdown": [("drawdown_alert.py", ())],
+        "equity": [("daily_equity_report.py", ())],   # 每日账面对比（今日实时 vs 昨日收盘）→ data/equity_report.json/.md
         "consistency": [("monitor_backtest_consistency.py", ())],
         "expected": [("expected_path.py", ())],
         "preview": [("preview_next_rebalance.py", ())],
@@ -225,6 +226,7 @@ def main():
                 ("options_iv_snapshot.py", ()), ("fetch_futures.py", ()),
                 ("risk_monitor.py", ()), ("monitor_backtest_consistency.py", ()),
                 ("drawdown_alert.py", ()),         # 实时权益回撤告警（vs 历史峰值 ≤ -5%）→ 触发则紧急推送
+                ("daily_equity_report.py", ()),    # 每日账面对比（仅生成报告，盘后独立 crontab 负责推送）
                 ("learning_to_research.py", ()),   # 学习闭环：每日把学习笔记并入候选(learning_views.json)
                 ("methods_backtest.py", ())],      # 动态方法库·无闸回测（方法注册即生效，五道闸只用于晋升）
     }

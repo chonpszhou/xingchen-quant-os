@@ -33,3 +33,8 @@ OBSIDIAN_VAULT=/app/量化交易
 # 跑在 16:35 全链路批处理与 15min 盯市之后，数据最完整；任一失败进 xingchen.log 便于排查。
 # 看板地址自动探测（宿主/自身 localhost:8080；cron 容器经 compose 服务名 xingchen-quant-web:8080）。
 50 16 * * * root cd /app && python3 scripts/smoke_test.py >> /var/log/xingchen.log 2>&1
+
+# 美股收盘后（北京次晨 05:30，周二至周六）：每日账面对比独立推送
+# 此时盘中盯市已含美股当日实时收盘价，今日 vs 昨日对比最准确；--push 经 push_digest 发邮件/IM。
+# 生成报告已并入 16:35 的 all（当时美股未收盘、沿用旧收），此处重新生成最新版并推送，单日仅此一封。
+30 5 * * 2-6 root cd /app && python3 scripts/daily_equity_report.py --push >> /var/log/xingchen.log 2>&1
