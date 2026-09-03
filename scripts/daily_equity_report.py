@@ -9,6 +9,8 @@
 
 --push:
     通过 scripts/push_digest.py 把 markdown 推送到已配置通道（邮件/IM）。
+    条件推送：仅当「6 账户总权益单日变动 %」≥ 环境变量 DAILY_REPORT_PUSH_MIN_PCT
+    （默认 0.5）或触发回撤告警时才发；平稳日静默（报告仍生成）。设该变量为 0 即恢复每日必发。
 
 口径说明
 --------
@@ -21,6 +23,7 @@
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import date, datetime, timedelta
@@ -93,6 +96,18 @@ def load_yesterday(today):
             "cash": float(r["cash"]) if "cash" in df.columns else 19020.0,
         }
     return out
+
+
+def _has_drawdown_breach():
+    """回撤告警是否触发（任一真实账户当前权益较历史峰值回撤超阈值）。触发则无论变动大小都推送。"""
+    p = DATA / "drawdown_alert.json"
+    if not p.exists():
+        return False
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    return any(a.get("breach") for a in d.get("accounts", {}).values())
 
 
 def main():
@@ -198,18 +213,33 @@ def main():
     print(f"\n✓ 已写入 data/equity_report.json / data/equity_report.md")
 
     if args.push:
-        print("→ 推送每日账面对比…")
-        subprocess.run(
-            [
-                sys.executable,
-                str(ROOT / "scripts" / "push_digest.py"),
-                "--file",
-                str(DATA / "equity_report.md"),
-                "--subject",
-                f"星辰投研团 · 每日账面对比 {today.isoformat()}",
-            ],
-            check=False,
-        )
+        min_pct = float(os.environ.get("DAILY_REPORT_PUSH_MIN_PCT", "0.5"))
+        total_delta = report["total_all"]["delta"]
+        total_yest = report["total_all"]["yesterday"] or 1.0
+        delta_pct = total_delta / total_yest * 100
+        breach = _has_drawdown_breach()
+        if abs(delta_pct) >= min_pct or breach:
+            reason = (
+                "回撤告警触发" if breach and abs(delta_pct) < min_pct
+                else f"权益变动 {delta_pct:+.2f}% ≥ 阈值 {min_pct:.2f}%"
+            )
+            print(f"→ 推送每日账面对比（{reason}）…")
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "push_digest.py"),
+                    "--file",
+                    str(DATA / "equity_report.md"),
+                    "--subject",
+                    f"星辰投研团 · 每日账面对比 {today.isoformat()}",
+                ],
+                check=False,
+            )
+        else:
+            print(
+                f"· 权益变动 {delta_pct:+.2f}% < 阈值 {min_pct:.2f}%，且无回撤告警 "
+                f"→ 跳过推送（报告已生成于 data/equity_report.md）"
+            )
     return 0
 
 
