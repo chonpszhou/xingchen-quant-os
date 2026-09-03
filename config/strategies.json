@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "methods": [
+    {
+      "id": "vol_target_momentum_fast",
+      "template": "vol_target_momentum",
+      "params": {
+        "window": 126,
+        "skip": 10,
+        "decay": 0.05,
+        "target_vol_ann": 0.25
+      },
+      "source": "learning-derived",
+      "thesis": "示例：缩短回看窗口(252→126)以捕捉更快的动量，验证动态方法库无闸即可回测",
+      "symbol": "AAPL",
+      "market": "us",
+      "created_at": "2026-09-02",
+      "updated_at": "2026-09-02",
+      "promoted": false
+    }
+  ]
+}

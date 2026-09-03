@@ -188,6 +188,7 @@ def main():
         "hk": [("paper_trade_hk.py", ())],
         "aapl": [("paper_trade_aapl.py", ())],
         "learn-bridge": [("learning_to_research.py", ())],
+        "methods": [("methods_backtest.py", ())],   # 动态方法库·无闸回测（研究层，不晋升实盘）
         "validate": [("validate_paper_engines.py", ())],
         "weekly": [("report_weekly.py", ())],
         "portfolio": [("portfolio_view.py", ())],
@@ -207,10 +208,11 @@ def main():
                 ("paper_trade_aapl.py", ()),
                 ("options_iv_snapshot.py", ()), ("fetch_futures.py", ()),
                 ("risk_monitor.py", ()), ("monitor_backtest_consistency.py", ()),
-                ("learning_to_research.py", ())],   # 学习闭环：每日把学习笔记并入候选(learning_views.json)
+                ("learning_to_research.py", ()),   # 学习闭环：每日把学习笔记并入候选(learning_views.json)
+                ("methods_backtest.py", ())],      # 动态方法库·无闸回测（方法注册即生效，五道闸只用于晋升）
     }
     if step not in steps:
-        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / test / risk / consistency / expected / preview / learn / learn_hourly / gex / all")
+        print("未知步骤，可选: update / cb / iv / digest / push / monthly / futures / status / momentum / rp / validate / weekly / portfolio / test / risk / consistency / expected / preview / learn / learn_hourly / gex / learn-bridge / methods / all")
         return 1
     for script, args in steps[step]:
         run(script, args)

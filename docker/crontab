@@ -1,6 +1,9 @@
 # 星辰投研团 · 容器内定时任务（时区 Asia/Shanghai）
 SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
+# ⚠️ cron 子进程不继承 docker compose 的 environment，必须在此显式声明时区。
+# 否则容器内 Python 日志时间戳落 UTC，比北京时间晚 8 小时（16:38 会记成 08:38）。
+TZ=Asia/Shanghai
 # Obsidian vault 挂载点（容器 compose 挂载 ~/Documents/Obsidian Vault/量化交易 → /app/量化交易）
 # cron 子进程不继承 docker environment，故在此声明，供 learn_daily/learn_hourly 同步笔记
 OBSIDIAN_VAULT=/app/量化交易
@@ -13,6 +16,10 @@ OBSIDIAN_VAULT=/app/量化交易
 
 # 每小时整点：轻学习（未读池轮转 + 成果卡片）
 0 * * * * root cd /app && python3 scripts/learn_hourly.py >> /var/log/xingchen.log 2>&1
+
+# 每小时整点：盘中盯市（用实时报价重估五账户权益 → data/intraday_mtm.json）
+# 只重估净值、不改持仓逻辑；与日终 16:35 批处理解耦，不写入 paper_*_nav.parquet
+0 * * * * root cd /app && python3 scripts/mark_to_market.py >> /var/log/xingchen.log 2>&1
 
 # 周日 20:00：周报 + 推送
 0 20 * * 0 root cd /app && python3 scripts/report_weekly.py >> /var/log/xingchen.log 2>&1 && python3 scripts/push_digest.py >> /var/log/xingchen.log 2>&1

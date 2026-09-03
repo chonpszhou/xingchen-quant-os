@@ -415,13 +415,63 @@ def _gate_ticker(symbol):
                  amount=float(t["quote_volume"]), ts=_now(), source="Gate")
 
 
+# Binance 公共数据镜像。
+# 注：2026-09 实测本机容器内 www.okx.com 与 api.gateio.ws 均 DNS/连接不可达，
+# 导致 16 个加密标的日线与实时报价全部断更（加密模拟盘净值冻结）。
+# data-api.binance.vision 实测 16/16 标的可用且含当日 K 线，故置为主源。
+BINANCE_DATA_API = "https://data-api.binance.vision"
+
+
+def _binance_pair(symbol: str) -> str:
+    """BTC/USDT -> BTCUSDT；持仓键写作 BTC_USDT 也要能识别，故下划线一并去掉。"""
+    return "".join(ch for ch in str(symbol).upper() if ch.isalnum())
+
+
+def _binance_ticker(symbol):
+    r = requests.get(f"{BINANCE_DATA_API}/api/v3/ticker/24hr",
+                     params={"symbol": _binance_pair(symbol)}, timeout=12,
+                     headers={"User-Agent": "Mozilla/5.0"})
+    r.raise_for_status()
+    t = r.json()
+    if not isinstance(t, dict) or not t.get("lastPrice"):
+        raise RuntimeError(f"Binance ticker 异常: {str(t)[:120]}")
+    last = float(t["lastPrice"])
+    op = float(t.get("openPrice") or 0)
+    pct = round((last / op - 1) * 100, 2) if op else None
+    return Quote(symbol=symbol, name=symbol, market="虚拟货币", price=last, change_pct=pct,
+                 volume=float(t.get("volume") or 0), amount=float(t.get("quoteVolume") or 0),
+                 ts=_now(), source="Binance")
+
+
+def _binance_ohlcv(symbol, start, end):
+    """Binance 现货日线，单次 limit=1000（约 2.7 年）足够增量与常规回补。"""
+    r = requests.get(f"{BINANCE_DATA_API}/api/v3/klines",
+                     params={"symbol": _binance_pair(symbol), "interval": "1d", "limit": "1000"},
+                     timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+    r.raise_for_status()
+    data = r.json()
+    if not isinstance(data, list) or not data:
+        raise RuntimeError("Binance klines 为空")
+    rows = [{"ts": int(x[0]), "open": float(x[1]), "high": float(x[2]),
+             "low": float(x[3]), "close": float(x[4]), "volume": float(x[5])} for x in data]
+    df = pd.DataFrame(rows)
+    df["date"] = pd.to_datetime(df["ts"], unit="ms", utc=True).dt.tz_convert("Asia/Shanghai").dt.date
+    df = df[(df["date"].astype(str) >= start) & (df["date"].astype(str) <= end)].copy()
+    if df.empty:
+        raise RuntimeError(f"Binance klines 区间内为空 {symbol} {start}~{end}")
+    return _norm_ohlcv(df, "Binance")
+
+
 def quote_crypto(symbol):
     if symbol in CRYPTO_INDEX:
         return quote_crypto_index(symbol)
     try:
-        return _retry(lambda: _okx_ticker(symbol), attempts=3, delay=2)
+        return _retry(lambda: _binance_ticker(symbol), attempts=2, delay=2)
     except Exception:
-        return _retry(lambda: _gate_ticker(symbol), attempts=3, delay=2)
+        try:
+            return _retry(lambda: _okx_ticker(symbol), attempts=2, delay=2)
+        except Exception:
+            return _retry(lambda: _gate_ticker(symbol), attempts=2, delay=2)
 
 
 def quote_crypto_index(symbol):
@@ -483,10 +533,13 @@ def _gate_ohlcv(symbol, start, end):
 def history_crypto(symbol, start, end, adjust=None):
     if symbol in CRYPTO_INDEX:
         return _empty_ohlcv("CoinGecko")
-    try:
-        return _retry(lambda: _okx_ohlcv(symbol, start, end), attempts=2, delay=2)
-    except Exception:
-        return _retry(lambda: _gate_ohlcv(symbol, start, end), attempts=2, delay=2)
+    # 主源 Binance（容器内实测可达），OKX / Gate 依次兜底
+    for fn in (_binance_ohlcv, _okx_ohlcv, _gate_ohlcv):
+        try:
+            return _retry(lambda _fn=fn: _fn(symbol, start, end), attempts=2, delay=2)
+        except Exception:
+            continue
+    raise RuntimeError(f"加密历史获取失败 {symbol}")
 
 
 # ---------- 期权 ----------

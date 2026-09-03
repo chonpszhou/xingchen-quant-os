@@ -23,6 +23,7 @@ import argparse
 import os
 import json
 import sys
+import requests
 from datetime import date
 from pathlib import Path
 
@@ -33,6 +34,36 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import akshare  # noqa: F401,E402
+
+# 腾讯实时快照（纠正 akshare 对缺失/停牌可转债返回面值 100 占位价的 bug）
+TX_QUOTE_URL = "https://qt.gtimg.cn/q="
+
+
+def _tx_cb_code(code: str) -> str:
+    """可转债腾讯行情代码：11xxxx(沪) -> sh；12xxxx(深) -> sz。"""
+    s = str(code).zfill(6)
+    if s.startswith("11"):
+        return "sh" + s
+    if s.startswith("12"):
+        return "sz" + s
+    return "sh" + s
+
+
+def _tx_cb_price(code: str):
+    """腾讯快照取可转债现价；失败返回 None。快速路径(~300ms)，不依赖 akshare。"""
+    tc = _tx_cb_code(code)
+    try:
+        r = requests.get(TX_QUOTE_URL + tc, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
+        r.encoding = "gbk"
+        txt = r.text.strip()
+        if '="' not in txt or "~" not in txt:
+            return None
+        f = txt.split('="', 1)[1].rstrip('";').split("~")
+        if len(f) < 4 or not f[3]:
+            return None
+        return float(f[3])
+    except Exception:
+        return None
 
 COST = 0.001
 N_HOLD = 20
@@ -218,14 +249,25 @@ def main():
         if code not in prices:
             prices[code] = st["bench_holdings"][code]["last_price"]
 
-    # 异常价保护：转债有涨跌幅限制，若新价相对上次偏离过大、且该券已不在合格样本内，
-    # 判为行情异常（如摘牌/停牌后被按面值 100 占位），保留旧价并告警，避免净值失真
+    # 纠正 akshare 面值 100 占位：对价格为 100.0（缺失/停牌占位）的券用腾讯快照取真实现价。
+    # akshare 对无数据的可转债固定回 100.0，并非真实价格，会让日终净值被系统性低估
+    # （如 123188/128127/128128/123064）。腾讯快照可靠且快(~300ms)，覆盖即采用。
+    for code in list(prices):
+        if prices.get(code) == 100.0:
+            real = _tx_cb_price(code)
+            if real is not None:
+                prices[code] = real
+
+    # 异常价保护：仅在「新价本身是面值 100 占位」时回落旧价。
+    # 旧逻辑会把偏离>10% 的新价一律回落旧价——但当下旧价可能正是被 akshare 污染的 100.0，
+    # 那样会拒绝腾讯真实价、重新锁死净值低估。改为：新价==100.0（占位签名）才视为异常回落，
+    # 真实价（如腾讯 142.8）即便相对旧价 100.0 跳涨也采信——这正是要修的净值低估。
     good_codes = set(target["code"]) | set(bench["code"])
     price_warn = []
     for code, h in st["holdings"].items():
         old = float(h.get("last_price") or 0)
         new = float(prices.get(code, old) or 0)
-        if old > 0 and new > 0 and code not in good_codes and abs(new / old - 1) > MAX_JUMP:
+        if old > 0 and new > 0 and code not in good_codes and new == 100.0 and abs(new / old - 1) > MAX_JUMP:
             price_warn.append({"code": code, "action": "PRICE_JUMP_SUSPECT",
                                "old": round(old, 2), "new": round(new, 2)})
             prices[code] = old

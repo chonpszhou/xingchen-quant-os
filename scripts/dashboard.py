@@ -121,7 +121,38 @@ def cancel():
     _queue.clear()
 
 
+# 盘中盯市快照（scripts/mark_to_market.py 每小时写入；不存在则看板自动回落到日终净值）
+INTRADAY_FILE = ROOT / "data" / "intraday_mtm.json"
+INTRADAY_MAX_AGE_H = 3.0
+
+
+def intraday_data():
+    """读取盘中盯市快照，返回 (meta, {账户前缀: 估值})。
+
+    文件缺失 / 损坏 / 过旧（> INTRADAY_MAX_AGE_H 小时）时返回空表，
+    看板自动回落到日终净值，绝不因盯市失败而白屏。
+    """
+    if not INTRADAY_FILE.exists():
+        return {}, {}
+    try:
+        raw = json.loads(INTRADAY_FILE.read_text(encoding="utf-8"))
+        accts = raw.get("accounts") or {}
+        age_h = (time.time() - INTRADAY_FILE.stat().st_mtime) / 3600.0
+        meta = {
+            "ts": raw.get("ts") or "",
+            "age_h": round(age_h, 2),
+            "stale": age_h > INTRADAY_MAX_AGE_H,
+        }
+        if meta["stale"]:
+            return meta, {}
+        return meta, accts
+    except Exception as e:  # noqa: BLE001
+        print(f"[dashboard] 盘中盯市读取失败: {type(e).__name__}: {e}", file=sys.stderr)
+        return {}, {}
+
+
 def nav_data():
+    mtm_meta, mtm = intraday_data()
     out = {}
     for name, f in ACCOUNT_DEFS:
         p = ROOT / "data" / f"{f}_nav.parquet"
@@ -141,6 +172,9 @@ def nav_data():
             "dates": [d.strftime("%m-%d") for d in df["date"].tail(60)],
             "navs": [round(float(v), 0) for v in df["nav"].tail(60)],
             "benchs": [round(float(v), 0) for v in df["bench_nav"].tail(60)],
+            # 盘中盯市估值（未结算估计）；缺失时渲染层自动回落到日终净值
+            "intraday": mtm.get(f),
+            "intraday_ts": mtm_meta.get("ts", ""),
         }
     return out
 
@@ -385,35 +419,82 @@ def scan_view():
 
 
 def accounts_view():
-    """只读模拟盘面板：全部 5 个账户的净值卡片 + 汇总表 + 持仓"""
+    """只读模拟盘面板：全部账户的（盘中估值 / 日终净值）卡片 + 汇总表 + 持仓。
+
+    盘中估值来自 data/intraday_mtm.json（每小时盯市重估，未结算）；
+    取不到实时价或市场闭市时，自动回落到日终净值并标注，不伪造变动。
+    """
     accounts = nav_data()
     if not accounts:
         return "<p class='muted'>暂无模拟盘账户数据</p>"
+
+    mtm_ts = next((str(a.get("intraday_ts") or "") for a in accounts.values()
+                   if a.get("intraday_ts")), "")
+    head = ""
+    if mtm_ts:
+        head = (f"<p class='muted'>盘中盯市快照 <b>{mtm_ts}</b>：每小时整点用实时报价重估"
+                f"（未结算估计）；已结算的日终净值仍由 16:35 批处理写入。</p>")
+
     cards = ""
     for name, a in accounts.items():
         daily, cum, dd = metrics_of(a["navs"])
+        it = a.get("intraday") or {}
+        eq, ipct = it.get("equity"), it.get("pct")
+        live = bool(it.get("live")) and eq is not None and ipct is not None
+
+        if live:
+            big = f"{eq:,.0f}"
+            chip0 = f"<span class=\"chip {'up' if ipct >= 0 else 'down'}\">盘中 {ipct:+.2%}</span>"
+            badge = f"{a['days']}天 · 调仓{a['rebal']} · <b class='ok'>盘中</b>"
+            sub = (f"日终({a['date']}) {a['nav']:,.0f} · 基准 {a['bench']:,.0f} · 超额 "
+                   f"<b class=\"{'up' if a['excess'] >= 0 else 'down'}\">{a['excess']:+,.0f}</b>")
+        else:
+            big = f"{a['nav']:,.0f}"
+            chip0 = f"<span class=\"chip {'up' if daily >= 0 else 'down'}\">日 {daily:+.2%}</span>"
+            badge = f"{a['days']}天 · 调仓{a['rebal']}"
+            closed = " · <span class='muted'>闭市/无实时价</span>" if it else ""
+            sub = (f"基准 {a['bench']:,.0f} · 超额 "
+                   f"<b class=\"{'up' if a['excess'] >= 0 else 'down'}\">{a['excess']:+,.0f}</b>{closed}")
+        dd_cls = 'ok' if dd >= -0.20 else 'warn'
+        warn = ""
+        if it.get("suspect_symbols"):
+            warn = (f"<div class='sub warn'>⚠ 基准价存疑 {', '.join(it['suspect_symbols'])}"
+                    f"：日终源疑似返回占位价，该账户盘中涨跌幅含计价修正成分</div>")
         cards += f"""
         <div class="card">
-          <div class="card-head"><h3>{name}</h3><span class="badge">{a['days']}天 · 调仓{a['rebal']}</span></div>
-          <div class="big">{a['nav']:,.0f}</div>
+          <div class="card-head"><h3>{name}</h3><span class="badge">{badge}</span></div>
+          <div class="big">{big}</div>
           <div class="chips">
-            <span class="chip {'up' if daily>=0 else 'down'}">日 {daily:+.2%}</span>
+            {chip0}
             <span class="chip">累计 {cum:+.2%}</span>
-            <span class="chip {'ok' if dd>=-0.20 else 'warn'}">回撤 {dd:.1%}</span>
+            <span class="chip {dd_cls}">回撤 {dd:.1%}</span>
           </div>
-          <div class="sub">基准 {a['bench']:,.0f} · 超额 <b class="{'up' if a['excess']>=0 else 'down'}">{a['excess']:+,.0f}</b></div>
+          <div class="sub">{sub}</div>
+          {warn}
         </div>"""
+
     agg_rows = ""
     for name, a in accounts.items():
         daily, cum, dd = metrics_of(a["navs"])
-        agg_rows += (f"<tr><td>{name}</td><td>{a['nav']:,.0f}</td>"
-                     f"<td class=\"{'up' if cum>=0 else 'down'}\">{cum:+.2%}</td>"
-                     f"<td class=\"{'up' if a['excess']>=0 else 'down'}\">{a['excess']:+,.0f}</td>"
-                     f"<td class=\"{'ok' if dd>=-0.20 else 'warn'}\">{dd:.1%}</td>"
+        it = a.get("intraday") or {}
+        eq, ipct = it.get("equity"), it.get("pct")
+        eq_s = f"{eq:,.0f}" if eq is not None else "—"
+        if ipct is None:
+            ipct_s = "—"
+        else:
+            ipct_s = f"<span class=\"{'up' if ipct >= 0 else 'down'}\">{ipct:+.2%}</span>"
+        cum_cls = 'up' if cum >= 0 else 'down'
+        exc_cls = 'up' if a['excess'] >= 0 else 'down'
+        dd_cls = 'ok' if dd >= -0.20 else 'warn'
+        agg_rows += (f"<tr><td>{name}</td><td>{a['nav']:,.0f}</td><td>{eq_s}</td><td>{ipct_s}</td>"
+                     f"<td class=\"{cum_cls}\">{cum:+.2%}</td>"
+                     f"<td class=\"{exc_cls}\">{a['excess']:+,.0f}</td>"
+                     f"<td class=\"{dd_cls}\">{dd:.1%}</td>"
                      f"<td>{a['rebal']}</td><td>{a['date']}</td></tr>")
-    agg = (f"<h2>账户汇总</h2><table><tr><th>账户</th><th>最新净值</th><th>累计</th>"
-           f"<th>超额基准</th><th>最大回撤</th><th>调仓</th><th>日期</th></tr>{agg_rows}</table>")
-    return f"<div class='grid'>{cards}</div>{agg}<h2>持仓明细</h2>{paper_positions_view()}"
+    agg = (f"<h2>账户汇总</h2><table><tr><th>账户</th><th>日终净值</th><th>盘中估值</th>"
+           f"<th>盘中涨跌</th><th>累计</th><th>超额基准</th><th>最大回撤</th><th>调仓</th>"
+           f"<th>日期</th></tr>{agg_rows}</table>")
+    return f"{head}<div class='grid'>{cards}</div>{agg}<h2>持仓明细</h2>{paper_positions_view()}"
 
 
 def market_view():

@@ -12,6 +12,8 @@ Phase 1 抽取目标：消除三处引擎副本（paddy src/engine、xingchen en
 - quality_filter（第四道闸门，paddy 与 xingchen 逐字相同，W1-② 单一真源）
 - self_review（11 项机械自查，paddy src/utils 与 xingchen engine 逐字相同，W1-② 单一真源）
 - optimizer.ParameterOptimizer（原 paddy src/engine/optimizer.py，W1-② 单一真源）
+- strategies.StrategyRegistry（动态方法库：方法注册即生效、可回测、可版本化，**无五道闸**；
+  五道闸仅用于"晋升实盘"路径，见 strategies.py 设计说明）
 
 留在其各自仓 app 层（范式不同，未纳入共享包）：
 - xingchen engine/backtest.py 的 BacktestEngine（事件驱动、耦合 executor/risk/exit）

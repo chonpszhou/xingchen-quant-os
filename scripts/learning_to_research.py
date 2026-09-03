@@ -34,6 +34,11 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# 容器里以 `python3 scripts/X.py` 调用时 /app 不在 sys.path[0]，需显式注入仓库根
+# （research_sweep.py 同款处理），否则 quantos_engine 等顶层包无法导入。
+sys.path.insert(0, str(ROOT))
+from quantos_engine.strategies import StrategyRegistry, load_registry
+
 # paddy 权威内核（同机兄弟目录），用于镜像同一份 learning_views
 PADDY_CFG = Path("/Users/zhoupeng/WorkBuddy/量化交易/paddy-quant-workbench/config/learning_views.json")
 
@@ -214,8 +219,93 @@ def _dir_of(v: dict) -> str:
     return "neutral"
 
 
+# ---------------------------------------------------------------------------
+# 方法部署闭环：把「值得借鉴的方法」自动注册进动态方法库（无五道闸、可回测）
+# ---------------------------------------------------------------------------
+# 学习笔记里用 ```method 围栏块声明一个方法，例如：
+#   ```method
+#   id: vol_target_momentum_fast
+#   template: vol_target_momentum
+#   params: {"window": 126, "skip": 10, "decay": 0.05, "target_vol": 0.25}
+#   thesis: 缩短回看窗口以捕捉更快的动量
+#   symbol: AAPL
+#   market: us
+#   ```
+# template 必须 ∈ 引擎已注册策略（quantos_engine._STRATS），不执行任意代码。
+PADDY_STRAT = Path("/Users/zhoupeng/WorkBuddy/量化交易/paddy-quant-workbench/config/strategies.json")
+
+
+def _iter_method_blocks(text: str):
+    """提取所有 ```method ... ``` 围栏块。"""
+    out = []
+    for m in re.finditer(r"```method\s*\n(.*?)```", text, re.DOTALL):
+        out.append(m.group(1))
+    return out
+
+
+def _parse_method_block(block: str) -> dict | None:
+    """解析单个方法块 → 字典；缺 id/template 返回 None。"""
+    d: dict = {}
+    for line in block.splitlines():
+        line = line.strip()
+        if not line or ":" not in line:
+            continue
+        k, _, v = line.partition(":")
+        k, v = k.strip(), v.strip()
+        if k == "params":
+            try:
+                v = json.loads(v)
+            except Exception:
+                v = {}
+        d[k] = v
+    if "id" not in d or "template" not in d:
+        return None
+    return d
+
+
+def build_methods(dry: bool = False):
+    """把学习笔记里的方法块幂等写入 config/strategies.json（动态方法库）。"""
+    reg = load_registry(ROOT / "config" / "strategies.json")
+    before = {m["id"] for m in reg.methods}        # 快照，用于区分新增/更新
+    touched, skipped = [], []
+    for src, text in _iter_markdown_docs():
+        for blk in _iter_method_blocks(text):
+            m = _parse_method_block(blk)
+            if not m:
+                continue
+            mid, tmpl = m["id"], m["template"]
+            params = m.get("params", {}) or {}
+            try:
+                reg.upsert(
+                    mid=mid, template=tmpl, params=params,
+                    source="learning-derived",
+                    thesis=m.get("thesis", ""),
+                    symbol=m.get("symbol"), market=m.get("market"),
+                )
+            except ValueError as e:
+                print(f"  ⚠️ 方法块 {mid} 拒绝: {e}")
+                skipped.append(mid)
+                continue
+            tag = "新增" if mid not in before else "更新"
+            print(f"  ➕ 方法 {mid} [{tmpl}] {tag}: {m.get('thesis','')[:30]}")
+            touched.append(mid)
+    if not dry:
+        reg.save(ROOT / "config" / "strategies.json")
+        # 镜像到 paddy 权威内核（同源共享方法库）；容器运行时 paddy 路径未挂载则跳过
+        if PADDY_STRAT.parent.exists():
+            try:
+                reg.save(PADDY_STRAT)
+            except Exception as e:
+                print(f"  ⚠️ 镜像 paddy strategies 失败（不影响星辰）: {e}")
+    added = len(set(touched) - before)
+    updated = len(set(touched) & before)
+    print(f"  方法部署：累计 {len(reg.methods)} 条（本次新增 {added} / 更新 {updated} / 拒绝 {len(skipped)}）")
+    return reg
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry", action="store_true", help="只打印不写文件")
     a = ap.parse_args()
     build(dry=a.dry)
+    build_methods(dry=a.dry)
