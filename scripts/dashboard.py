@@ -9,7 +9,7 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import date
+from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote
@@ -149,6 +149,24 @@ def intraday_data():
     except Exception as e:  # noqa: BLE001
         print(f"[dashboard] 盘中盯市读取失败: {type(e).__name__}: {e}", file=sys.stderr)
         return {}, {}
+
+
+def market_status():
+    """各市场当前开闭市状态（CST，基于容器 TZ=Asia/Shanghai）。
+
+    用于看板「数据新鲜度」提示——让用户一眼区分「金额没动是因为休市」还是
+    「因为系统故障」。边界为近似（美股按 21:30-04:00 CST 跨午夜处理，含周日
+    晚间开启的美股新交易周）。
+    """
+    now = datetime.now()
+    wd = now.weekday()          # Mon=0 .. Sun=6
+    hm = now.hour + now.minute / 60.0
+    evening = (wd in (6, 0, 1, 2, 3)) and hm >= 21.5   # 周日~周四 晚间开启
+    morning = (wd in (0, 1, 2, 3, 4)) and hm < 4.0     # 周一~周五 凌晨延续
+    cn = (wd < 5) and (9.5 <= hm < 11.5 or 13.0 <= hm < 15.0)   # A股/可转债
+    hk = (wd < 5) and (9.5 <= hm < 12.0 or 13.0 <= hm < 16.0)   # 港股
+    us = evening or morning                                      # 美股
+    return {"A股": cn, "港股": hk, "美股": us, "加密": True}
 
 
 def nav_data():
@@ -428,12 +446,28 @@ def accounts_view():
     if not accounts:
         return "<p class='muted'>暂无模拟盘账户数据</p>"
 
+    mtm_meta, _ = intraday_data()
     mtm_ts = next((str(a.get("intraday_ts") or "") for a in accounts.values()
                    if a.get("intraday_ts")), "")
-    head = ""
-    if mtm_ts:
-        head = (f"<p class='muted'>盘中盯市快照 <b>{mtm_ts}</b>：每小时整点用实时报价重估"
-                f"（未结算估计）；已结算的日终净值仍由 16:35 批处理写入。</p>")
+    # —— 数据新鲜度 + 市场状态（让用户区分「休市」与「系统故障」）——
+    nav_dates = [a["date"] for a in accounts.values() if a.get("date")]
+    latest_nav = max(nav_dates) if nav_dates else "—"
+    age = mtm_meta.get("age_h")
+    stale = mtm_meta.get("stale")
+    mtm_fresh = "✓新鲜" if not stale else "✗陈旧"
+    nav_age_txt = ""
+    if latest_nav != "—":
+        d = (datetime.now().date() - datetime.strptime(latest_nav, "%Y-%m-%d").date()).days
+        nav_age_txt = ("（今天）" if d == 0 else "（昨天）" if d == 1 else f"（{d}天前）")
+    ms = market_status()
+    ms_chips = " ".join(
+        f"<span class='chip {'ok' if ms[k] else 'muted'}'>{k}{'开' if ms[k] else '休'}</span>"
+        for k in ("A股", "港股", "美股", "加密"))
+    head = (f"<p class='muted'>盘中盯市快照 <b>{mtm_ts or '—'}</b>（{mtm_fresh}"
+            f"{f'，{age:.1f}h前' if age is not None else ''}）· "
+            f"日终净值最新 <b>{latest_nav}</b>{nav_age_txt}<br>"
+            f"各市场：{ms_chips} · 盘中估值每小时整点重估（未结算估计）；"
+            f"日终净值由 16:35 批处理独占写入。</p>")
 
     cards = ""
     for name, a in accounts.items():
