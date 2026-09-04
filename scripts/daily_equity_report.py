@@ -160,6 +160,23 @@ def main():
     ty5 = sum((r["yesterday"] for r in rows if r["account"] not in OBS_ACCOUNTS and r["yesterday"] is not None), 0.0)
     tt5 = sum((r["today"] for r in rows if r["account"] not in OBS_ACCOUNTS and r["today"] is not None), 0.0)
 
+    # 快照时点提示（动态）：标明实时/沿用旧收账户，避免误读单日 Δ
+    live_accounts = [r["name"] for r in rows if r["status"] == "实时"]
+    stale_accounts = [r["name"] for r in rows if r["status"] == "⚠沿用旧收"]
+    allcash_accounts = [r["name"] for r in rows if r["status"] == "全现金"]
+    if stale_accounts:
+        live_txt = "、".join(live_accounts) if live_accounts else "无（均未取到实时价）"
+        stale_txt = "、".join(stale_accounts)
+        allcash_txt = f"；全现金（已清仓）：{('、'.join(allcash_accounts))}" if allcash_accounts else ""
+        snapshot_note = (
+            "⚠ **快照时点提示**：本对比为「今日实时快照 vs 昨日收盘」的混合时点——"
+            f"实时账户：{live_txt}；沿用上一收盘（⚠）：{stale_txt}{allcash_txt}。"
+            "各市场开闭市不同，快照天然混合实时价与昨收价；表中单日权益Δ主要反映实时账户的变动，"
+            "并非四市场统一时点的完整当日盈亏。做归因时请以「状态」列（实时/沿用旧收/全现金）为准。"
+        )
+    else:
+        snapshot_note = "✓ 本对比所有账户均为实时价（四市场统一收盘后快照）。"
+
     report = {
         "date": today.isoformat(),
         "yesterday": (today - timedelta(days=1)).isoformat(),
@@ -176,6 +193,7 @@ def main():
         "initial": INIT * 6,
         "cum_vs_initial": tt - INIT * 6,
         "cum_vs_initial_pct": (tt - INIT * 6) / (INIT * 6) * 100,
+        "snapshot_note": snapshot_note,
     }
     (DATA / "equity_report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -186,6 +204,8 @@ def main():
     L.append(f"# 星辰投研团 · 每日账面对比（{today.isoformat()} vs {yd}）")
     L.append("")
     L.append("> 口径：今日=盘中盯市实时快照；昨日=上一交易日收盘权益。标注 ⚠ 表示今日尚未刷新实时价（沿用上一收盘）。")
+    L.append("")
+    L.append(snapshot_note)
     L.append("")
     L.append("| 账户 | 昨日收盘 | 今日实时 | 权益Δ | 今日现金 | 现金Δ | 状态 |")
     L.append("|------|------:|------:|------:|------:|------:|------|")
