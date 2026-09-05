@@ -98,6 +98,8 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--reset", action="store_true")
     p.add_argument("--as-of", default="")
+    p.add_argument("--force", action="store_true",
+                   help="忽略调仓日历，立即按现有风险平价规则再平衡（用于把释放/追加的闲置现金按需部署）")
     args = p.parse_args()
     if args.reset:
         save_state({"cash": 1_000_000.0, "holdings": {}, "last_rebalance": None,
@@ -115,7 +117,7 @@ def main():
         print("本地缺少 ETF 数据，先运行 python3 scripts/run_all.py update")
         return
     st = load_state()
-    due = trade_days_since(st["last_rebalance"], today) >= REBALANCE_DAYS
+    due = trade_days_since(st["last_rebalance"], today) >= REBALANCE_DAYS or args.force
     if not st.get("spy_entry"):
         st["spy_entry"] = prices["SPY"]
 
