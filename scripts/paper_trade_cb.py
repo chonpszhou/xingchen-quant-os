@@ -495,6 +495,8 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--reset", action="store_true")
     p.add_argument("--as-of", default="")
+    p.add_argument("--force", action="store_true",
+                   help="忽略调仓日历，立即按现有双低规则再平衡（用于把释放的闲置现金按需部署）")
     args = p.parse_args()
     if args.reset:
         save_state({"cash": 1_000_000.0, "holdings": {}, "last_rebalance": None,
@@ -510,7 +512,7 @@ def main():
     st = load_state()
     st.setdefault("bench_cash", 1_000_000.0)
     st.setdefault("bench_holdings", {})
-    due = trade_days_since(st["last_rebalance"], today) >= REBALANCE_DAYS
+    due = trade_days_since(st["last_rebalance"], today) >= REBALANCE_DAYS or args.force
 
     # 盯市价优先用全市场映射（含被合格性过滤的券），避免价格滞留旧值
     prices = dict(all_prices)

@@ -197,6 +197,44 @@ def nav_data():
     return out
 
 
+def combined_nav():
+    """全账户合计净值序列（按日期对齐；缺失账户用「最近可用收盘」回退，
+    避免 AAPL 灰度清仓后净值文件停在 9/3 导致合计出现假悬崖）。"""
+    INIT = 6_000_000.0
+    series = {}  # date(YYYY-MM-DD) -> {prefix: nav}
+    for name, f in ACCOUNT_DEFS:
+        p = ROOT / "data" / f"{f}_nav.parquet"
+        if not p.exists():
+            continue
+        try:
+            df = pd.read_parquet(p)
+        except Exception:
+            continue
+        if "date" not in df.columns or "nav" not in df.columns:
+            continue
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values("date")
+        for dt, nav in zip(df["date"], df["nav"]):
+            series.setdefault(str(dt.date()), {})[f] = float(nav)
+    dates = sorted(series.keys())
+    if not dates:
+        return None
+    last = {}
+    totals = []
+    for d in dates:
+        last.update(series[d])
+        totals.append((d, sum(last.values())))
+    totals = totals[-60:]
+    ds = [t[0][5:] for t in totals]  # MM-DD
+    ns = [t[1] for t in totals]
+    cur = ns[-1] if ns else INIT
+    return {
+        "dates": ds, "navs": ns, "initial": INIT, "current": cur,
+        "cum": (cur / INIT - 1) if ns else 0.0,
+        "cdaily": (ns[-1] / ns[-2] - 1) if len(ns) > 1 else 0.0,
+    }
+
+
 def metrics_of(navs):
     s = pd.Series(navs)
     daily = s.iloc[-1] / s.iloc[-2] - 1 if len(s) > 1 else 0.0
@@ -469,6 +507,39 @@ def accounts_view():
             f"各市场：{ms_chips} · 盘中估值每小时整点重估（未结算估计）；"
             f"日终净值由 16:35 批处理独占写入。</p>")
 
+    # —— 全账户合计净值曲线 + 现金占比（解决「看不清真实总权益、被加密噪声带节奏」）——
+    comb = combined_nav()
+    comb_block = ""
+    if comb:
+        cash_total = 0.0
+        for a in accounts.values():
+            it = a.get("intraday") or {}
+            c = it.get("cash")
+            if c is not None:
+                cash_total += float(c)
+        cash_ratio = (cash_total / comb["current"]) if comb["current"] else 0.0
+        invested = comb["current"] - cash_total
+        ccum = comb["cum"]
+        cdaily = comb["cdaily"]
+        bench = [comb["initial"]] * len(comb["navs"])
+        comb_svg = svg_dual(comb["dates"], comb["navs"], bench, w=900, h=180)
+        comb_block = f"""
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-head"><h3>全账户合计净值（含现金 · 真实总权益）</h3>
+            <span class="badge">初始 6,000,000</span></div>
+          <div class="big">{comb['current']:,.0f}</div>
+          <div class="chips">
+            <span class="chip {'up' if ccum >= 0 else 'down'}">累计 {ccum:+.2%}</span>
+            <span class="chip {'up' if cdaily >= 0 else 'down'}">日 {cdaily:+.2%}</span>
+            <span class="chip {'warn' if cash_ratio > 0.15 else 'ok'}">现金占比 {cash_ratio:.1%}</span>
+            <span class="chip">现金 {cash_total:,.0f}</span>
+            <span class="chip">在投 {invested:,.0f}</span>
+          </div>
+          <div class="sub">蓝线=合计净值，黄虚线=初始 600 万基准。已对清仓账户（如 AAPL 灰度）做「最近可用收盘」回退，无假悬崖。
+          现金占比偏高代表资金闲置——可参考下方「闲置现金再部署」。</div>
+          {comb_svg}
+        </div>"""
+
     cards = ""
     for name, a in accounts.items():
         daily, cum, dd = metrics_of(a["navs"])
@@ -528,7 +599,7 @@ def accounts_view():
     agg = (f"<h2>账户汇总</h2><table><tr><th>账户</th><th>日终净值</th><th>盘中估值</th>"
            f"<th>盘中涨跌</th><th>累计</th><th>超额基准</th><th>最大回撤</th><th>调仓</th>"
            f"<th>日期</th></tr>{agg_rows}</table>")
-    return f"{head}<div class='grid'>{cards}</div>{agg}<h2>持仓明细</h2>{paper_positions_view()}"
+    return f"{head}{comb_block}<div class='grid'>{cards}</div>{agg}<h2>持仓明细</h2>{paper_positions_view()}"
 
 
 def market_view():
