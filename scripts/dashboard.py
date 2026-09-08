@@ -47,6 +47,17 @@ ACCOUNT_DEFS = [
     ("AAPL·灰度", "paper_aapl"),
 ]
 
+# 外部注入本金：2026-09-05 将 AAPL 灰度释放的 1,023,874 按 NAV 权重摊入 5 盘。
+# 看板「自有收益」口径须扣掉这部分，否则会把挪进来的本金误算成策略收益。
+INJECTED_CAPITAL = {
+    "paper_cb": 202209.17,
+    "paper_mom": 213417.47,
+    "paper_rp": 202630.78,
+    "paper_crypto": 207711.24,
+    "paper_hk": 197905.34,
+    "paper_aapl": 0.0,
+}
+
 _queue = collections.deque()
 _current = {"name": None, "proc": None}
 _running = {"task": None, "started": None, "log": []}
@@ -193,6 +204,9 @@ def nav_data():
             # 盘中盯市估值（未结算估计）；缺失时渲染层自动回落到日终净值
             "intraday": mtm.get(f),
             "intraday_ts": mtm_meta.get("ts", ""),
+            # 真实自有收益口径：扣掉外部注入本金（AAPL 灰度摊入），避免把挪进来的钱算成策略收益
+            "injected": float(INJECTED_CAPITAL.get(f, 0.0)),
+            "own_ret": (float(last["nav"]) - 1_000_000.0 - INJECTED_CAPITAL.get(f, 0.0)) / 1_000_000.0,
         }
     return out
 
@@ -540,9 +554,9 @@ def accounts_view():
           {comb_svg}
         </div>"""
 
-    cards = ""
+        cards = ""
     for name, a in accounts.items():
-        daily, cum, dd = metrics_of(a["navs"])
+        daily, _, dd = metrics_of(a["navs"])
         it = a.get("intraday") or {}
         eq, ipct = it.get("equity"), it.get("pct")
         live = bool(it.get("live")) and eq is not None and ipct is not None
@@ -571,7 +585,7 @@ def accounts_view():
           <div class="big">{big}</div>
           <div class="chips">
             {chip0}
-            <span class="chip">累计 {cum:+.2%}</span>
+            <span class="chip {'up' if a['own_ret'] >= 0 else 'down'}">自有收益 {a['own_ret']:+.2%}</span>
             <span class="chip {dd_cls}">回撤 {dd:.1%}</span>
           </div>
           <div class="sub">{sub}</div>
@@ -580,7 +594,7 @@ def accounts_view():
 
     agg_rows = ""
     for name, a in accounts.items():
-        daily, cum, dd = metrics_of(a["navs"])
+        daily, _, dd = metrics_of(a["navs"])
         it = a.get("intraday") or {}
         eq, ipct = it.get("equity"), it.get("pct")
         eq_s = f"{eq:,.0f}" if eq is not None else "—"
@@ -588,16 +602,19 @@ def accounts_view():
             ipct_s = "—"
         else:
             ipct_s = f"<span class=\"{'up' if ipct >= 0 else 'down'}\">{ipct:+.2%}</span>"
-        cum_cls = 'up' if cum >= 0 else 'down'
+        cum_cls = 'up' if a['own_ret'] >= 0 else 'down'
         exc_cls = 'up' if a['excess'] >= 0 else 'down'
         dd_cls = 'ok' if dd >= -0.20 else 'warn'
         agg_rows += (f"<tr><td>{name}</td><td>{a['nav']:,.0f}</td><td>{eq_s}</td><td>{ipct_s}</td>"
-                     f"<td class=\"{cum_cls}\">{cum:+.2%}</td>"
+                     f"<td class=\"{cum_cls}\">{a['own_ret']:+.2%}</td>"
                      f"<td class=\"{exc_cls}\">{a['excess']:+,.0f}</td>"
                      f"<td class=\"{dd_cls}\">{dd:.1%}</td>"
                      f"<td>{a['rebal']}</td><td>{a['date']}</td></tr>")
-    agg = (f"<h2>账户汇总</h2><table><tr><th>账户</th><th>日终净值</th><th>盘中估值</th>"
-           f"<th>盘中涨跌</th><th>累计</th><th>超额基准</th><th>最大回撤</th><th>调仓</th>"
+    agg = (f"<h2>账户汇总</h2>"
+           f"<div class='sub'>「自有收益」= 净值 − 初始本金100万 − 外部注入本金（如 AAPL 灰度摊入的约20万）；"
+           f"已扣除本金挪入，仅反映各盘策略自身盈亏。全账户合计见上方卡片（仍含全部本金）。</div>"
+           f"<table><tr><th>账户</th><th>日终净值</th><th>盘中估值</th>"
+           f"<th>盘中涨跌</th><th>自有收益</th><th>超额基准</th><th>最大回撤</th><th>调仓</th>"
            f"<th>日期</th></tr>{agg_rows}</table>")
     return f"{head}{comb_block}<div class='grid'>{cards}</div>{agg}<h2>持仓明细</h2>{paper_positions_view()}"
 
